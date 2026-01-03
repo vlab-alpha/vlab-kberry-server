@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
-public record TimeTrigger(LocalTime time) implements Trigger {
+public record Time(LocalTime time) implements Trigger {
 
     @Override
     public boolean matches(LocalDateTime now) {
@@ -15,11 +15,12 @@ public record TimeTrigger(LocalTime time) implements Trigger {
     }
 
     @JsonCreator
-    public TimeTrigger(@JsonProperty("time") LocalTime time) {
+    public Time(@JsonProperty("time") LocalTime time) {
         this.time = time;
     }
 
-    public LocalTime getTime() {
-        return time;
+    public static Time trigger(LocalTime time) {
+        return new Time(time);
     }
+
 }

@@ -11,6 +11,7 @@ import tools.vlab.kberry.server.commands.CommandController;
 import tools.vlab.kberry.server.logic.Logic;
 import tools.vlab.kberry.server.logic.Logics;
 import tools.vlab.kberry.server.scheduler.ScheduleEngine;
+import tools.vlab.kberry.server.scheduler.trigger.Trigger;
 import tools.vlab.kberry.server.serviceProvider.*;
 import tools.vlab.kberry.server.statistics.Statistics;
 import tools.vlab.kberry.server.statistics.StatisticsScheduler;
@@ -38,13 +39,9 @@ public class KBerryServer {
         this.logicEngine = logicEngine;
     }
 
-    public void disconnect() {
-        connection.disconnect();
-    }
-
     public void startListening() {
         System.out.println("KBerryServer is now listening... Press Ctrl+C to stop.");
-        Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
+        Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
         try {
             Thread.currentThread().join();
         } catch (InterruptedException e) {
@@ -52,8 +49,9 @@ public class KBerryServer {
         }
     }
 
-    public void stop() {
+    public void shutdown() {
         logicEngine.stop();
+        connection.disconnect();
     }
 
     public static class Builder {
@@ -64,6 +62,7 @@ public class KBerryServer {
         private final Set<Logic> logics = new HashSet<>();
         private final String mqttHost;
         private final int mqttPort;
+        private final ScheduleEngine scheduler = new ScheduleEngine(new File("schedule"));
         private GoogleCalendarService googleCalendarServiceProvider;
         private IcloudCalendarService icloudCalenderService;
 
@@ -93,6 +92,11 @@ public class KBerryServer {
             return this;
         }
 
+        public Builder scheduler(String id, Trigger trigger, Runnable runnable) {
+            this.scheduler.start(id, trigger, runnable);
+            return this;
+        }
+
         public Builder setGoogleCalendar(Path credPath, String userId, String calendarId, String tokenPath) throws IOException {
             this.icloudCalenderService = null;
             this.googleCalendarServiceProvider = GoogleCalendarService.fromCredentialsFile(credPath, userId, calendarId, tokenPath);
@@ -118,7 +122,7 @@ public class KBerryServer {
             Statistics statistics = new Statistics();
             var statisticsScheduler = new StatisticsScheduler(statistics, devices);
 
-            var engine = new ScheduleEngine(new File("schedule"));
+
 
             // ServiceProvider
             var costWattVerticle = new CostWattVerticle();
@@ -135,7 +139,7 @@ public class KBerryServer {
             logics.forEach(logicEngine::register);
 
             // Commands
-            var controller = new CommandController(mqttHost, mqttPort, devices, statistics, serviceProvider, engine, logicEngine);
+            var controller = new CommandController(mqttHost, mqttPort, devices, statistics, serviceProvider, scheduler, logicEngine);
             commands.forEach(controller::register);
 
             return vertx.deployVerticle(statisticsScheduler)

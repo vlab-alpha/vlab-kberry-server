@@ -55,6 +55,7 @@ public class CommandController extends AbstractVerticle {
                 .peek(cmd -> cmd.setServiceProviders(serviceProviders))
                 .peek(cmd -> cmd.setSchedule(schedule))
                 .peek(cmd -> cmd.setLogics(logics))
+                .peek(Command::init)
                 .toList();
     }
 

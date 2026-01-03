@@ -7,27 +7,22 @@ import tools.vlab.kberry.core.devices.actor.OnOffStatus;
 import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
 import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class AutoOffLogic extends Logic implements OnOffStatus, PresenceStatus {
+public class AutoPresenceOffLogic extends Logic implements OnOffStatus, PresenceStatus {
 
     private final int followupTimeS;
     private final ConcurrentHashMap<String, Periodic> periodics = new ConcurrentHashMap<>();
 
-    private AutoOffLogic(int followupTimeS, Vector<PositionPath> paths) {
+    private AutoPresenceOffLogic(int followupTimeS, Vector<PositionPath> paths) {
         super(paths);
         this.followupTimeS = followupTimeS;
     }
 
-    public static AutoOffLogic only(int followupTimeS, PositionPath positionPath) {
-        return new AutoOffLogic(followupTimeS, new Vector<>(Collections.singleton(positionPath)));
-    }
-
-    public static AutoOffLogic all(int followupTimeS, PositionPath... positionPath) {
-        return new AutoOffLogic(followupTimeS, new Vector<>(List.of(positionPath)));
+    public static AutoPresenceOffLogic at(int followupTimeS, PositionPath... positionPath) {
+        return new AutoPresenceOffLogic(followupTimeS, new Vector<>(List.of(positionPath)));
     }
 
     @Override

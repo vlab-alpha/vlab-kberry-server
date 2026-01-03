@@ -6,7 +6,6 @@ import tools.vlab.kberry.core.devices.actor.Plug;
 import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
 import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Vector;
 
@@ -16,11 +15,7 @@ public class AutoPlugOnLogic extends Logic implements PresenceStatus {
         super(paths);
     }
 
-    public static AutoPlugOnLogic only(PositionPath positionPath) {
-        return new AutoPlugOnLogic(new Vector<>(Collections.singleton(positionPath)));
-    }
-
-    public static AutoPlugOnLogic all(PositionPath... positionPath) {
+    public static AutoPlugOnLogic at(PositionPath... positionPath) {
         return new AutoPlugOnLogic(new Vector<>(List.of(positionPath)));
     }
 

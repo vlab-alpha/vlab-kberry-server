@@ -12,7 +12,7 @@ public class Main {
         KBerryServer server = null;
         try {
             server = KBerryServer.Builder.create("tmmy", "localhost", 1883, 2000, 10)
-                    .logic(AutoPlugOnLogic.only(HausTester.KinderzimmerBlau))
+                    .logic(AutoPlugOnLogic.at(HausTester.KinderzimmerBlau))
                     .register(Light.at(HausTester.KinderzimmerBlau))
                     .register(PresenceSensor.at(HausTester.KinderzimmerBlau))
                     .register(HumiditySensor.at(HausTester.KinderzimmerBlau, 60000))
@@ -20,7 +20,7 @@ public class Main {
             server.startListening();
         } catch (Exception e) {
             if (server != null) {
-                server.disconnect();
+                server.shutdown();
             }
         }
 

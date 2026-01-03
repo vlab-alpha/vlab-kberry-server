@@ -46,5 +46,7 @@ public abstract class Command {
         schedule.stop(id);
     }
 
+    public abstract void init();
+
 
 }
