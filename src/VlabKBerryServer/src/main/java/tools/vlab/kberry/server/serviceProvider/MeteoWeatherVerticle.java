@@ -1,6 +1,7 @@
 package tools.vlab.kberry.server.serviceProvider;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -10,15 +11,12 @@ import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 public class MeteoWeatherVerticle extends AbstractVerticle implements WeatherServiceProvider {
@@ -63,47 +61,40 @@ public class MeteoWeatherVerticle extends AbstractVerticle implements WeatherSer
 
     @Override
     public void start(Promise<Void> startPromise) {
+        Log.info("Starting MeteoWeatherVerticle");
         client = WebClient.create(vertx, new WebClientOptions()
                 .setDefaultHost("api.open-meteo.com")
                 .setDefaultPort(443)
                 .setSsl(true)
         );
-
-        try {
-            readLocationFromFile();
-        } catch (Exception e) {
-            Log.error("MeteoWeatherVerticle start error!", e);
-        }
-
-        fetchWeatherData();
-        getVertx().setPeriodic(6 * 60 * 60 * 1000L, id -> fetchWeatherData());
-
-        startPromise.complete();
+        readLocationFromFile()
+                .compose(none -> fetchWeatherData())
+                .compose(none -> {
+                    getVertx().setPeriodic(6 * 60 * 60 * 1000L, id -> fetchWeatherData());
+                    return Future.succeededFuture();
+                })
+                .onSuccess(none -> startPromise.complete())
+                .onFailure(startPromise::fail);
     }
 
-    private void readLocationFromFile() throws Exception {
-        try (BufferedReader br = new BufferedReader(
-                new InputStreamReader(
-                        Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(this.configFile))
-                )
-        )) {
-            String line = br.readLine();
-            if (line != null && !line.isBlank()) {
-                String[] parts = line.split(";");
-                latitude = Double.parseDouble(parts[0].trim());
-                longitude = Double.parseDouble(parts[1].trim());
-            }
-        }
+    private Future<Void> readLocationFromFile() {
+        return this.getVertx().fileSystem().readFile(this.configFile)
+                .compose(file -> {
+                    var json = file.toJsonObject();
+                    latitude = json.getDouble("latitude");
+                    longitude = json.getDouble("longitude");
+                    return Future.succeededFuture();
+                });
     }
 
-    private void fetchWeatherData() {
+    private Future<Void> fetchWeatherData() {
 
         String url = "/v1/forecast?latitude=" + latitude + "&longitude=" + longitude +
                 "&hourly=temperature_2m,weathercode&daily=sunrise,sunset&forecast_days=2&timezone=Europe/Berlin";
 
-        client.getAbs("https://api.open-meteo.com" + url)
+        return client.getAbs("https://api.open-meteo.com" + url)
                 .send()
-                .onSuccess(response -> {
+                .compose(response -> {
                     try {
                         JsonObject json = response.bodyAsJsonObject();
 
@@ -154,11 +145,12 @@ public class MeteoWeatherVerticle extends AbstractVerticle implements WeatherSer
                             sunriseTomorrow = sunriseArr.getString(1);
                             sunsetTomorrow = sunsetArr.getString(1);
                         }
+                        return Future.succeededFuture();
                     } catch (Exception e) {
                         Log.error("fetch weather data failed!", e);
+                        return Future.failedFuture(e);
                     }
-                })
-                .onFailure(failure -> System.err.println("Fehler beim Abrufen der Wetterdaten: " + failure.getMessage()));
+                });
     }
 
     private String findCurrentWeather(JsonArray times, JsonArray codes) {

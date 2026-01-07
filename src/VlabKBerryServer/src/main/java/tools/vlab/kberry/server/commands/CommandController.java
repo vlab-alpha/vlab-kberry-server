@@ -62,6 +62,7 @@ public class CommandController extends AbstractVerticle {
 
     @Override
     public void start(Promise<Void> startPromise) {
+        Log.info("Starting CommandController");
         connectClient()
                 .onSuccess(v -> {
                     subscribeCommands();

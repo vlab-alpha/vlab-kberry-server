@@ -1,6 +1,7 @@
 package tools.vlab.kberry.server.serviceProvider;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
@@ -49,14 +50,22 @@ public class CostWattVerticle extends AbstractVerticle implements CostWattServic
 
     @Override
     public void start(Promise<Void> startFuture) {
+        Log.info("Starting CostWattVerticle");
         try {
             if (localPriceFile != null) {
-                loadLocalPrice();
+                loadLocalPrice()
+                        .compose(none -> updateMarketPrice())
+                        .compose(none -> {
+                            vertx.setPeriodic(refreshInterval.toMillis(), id -> updateMarketPrice());
+                            return Future.succeededFuture();
+                        }).onSuccess(result -> startFuture.complete())
+                        .onFailure(startFuture::fail);
+            } else {
+                providerName = "";
+                localPricePerKWh = 1.2;
+                marketPricePerKWh = 1.2;
+                startFuture.complete();
             }
-            updateMarketPrice();
-            // periodisches Update
-            vertx.setPeriodic(refreshInterval.toMillis(), id -> updateMarketPrice());
-            startFuture.complete();
         } catch (Exception e) {
             startFuture.fail(e);
         }
@@ -74,40 +83,35 @@ public class CostWattVerticle extends AbstractVerticle implements CostWattServic
         return marketCost - localCost;
     }
 
-    private void loadLocalPrice() throws Exception {
-        // Lädt Datei aus Classpath, also src/main/resources oder src/test/resources
-        try (var is = getClass().getClassLoader().getResourceAsStream(this.localPriceFile)) {
-            if (is == null) throw new Exception("Datei config/local-price nicht gefunden im Classpath");
-            String content = new String(is.readAllBytes()).trim();
-            String[] parts = content.split(";");
-            if (parts.length >= 2) {
-                providerName = parts[0].trim();
-                localPricePerKWh = Double.parseDouble(parts[1].trim());
-            }
-        }
+    private Future<Void> loadLocalPrice() {
+        return this.getVertx().fileSystem().readFile(localPriceFile).compose(file -> {
+            var json = file.toJsonObject();
+            providerName = json.getString("provider");
+            localPricePerKWh = json.getDouble("localPricePerKWh");
+            return Future.succeededFuture();
+        });
     }
 
-    private void updateMarketPrice() {
+    private Future<Void> updateMarketPrice() {
         WebClient client = WebClient.create(getVertx());
-        client
+        return client
                 .getAbs("https://api.corrently.io/v2.0/marketdata")
                 .send()
-                .onSuccess(body -> {
+                .compose(body -> {
                     try {
                         JsonObject json = body.bodyAsJsonObject();
                         if (json == null) {
-                            Log.error("JSON response body is null {}", body);
-                            return;
+                            Log.error("JSON response body is null {} use default 13.0c", body);
+                            marketPricePerKWh = 13.0;
+                            return Future.succeededFuture();
                         }
                         double priceCt = json.getDouble("current");
-                        marketPricePerKWh = priceCt / 100.0;
                         System.out.println("Aktualisierter Marktpreis: " + marketPricePerKWh + " €/kWh");
+                        marketPricePerKWh = priceCt / 100.0;
+                        return Future.succeededFuture();
                     } catch (Exception e) {
-                        System.err.println("Fehler beim Verarbeiten des Marktpreises: " + e.getMessage());
+                        return Future.failedFuture(e);
                     }
-                })
-                .onFailure(failure -> {
-                    System.err.println("Fehler beim Abrufen des Marktpreises: " + failure.getMessage());
                 });
     }
 

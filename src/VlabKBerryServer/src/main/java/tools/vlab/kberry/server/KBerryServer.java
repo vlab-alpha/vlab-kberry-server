@@ -1,7 +1,11 @@
 package tools.vlab.kberry.server;
 
 import io.vertx.core.Vertx;
+import io.vertx.core.WorkerExecutor;
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import tools.vlab.kberry.core.baos.BAOSReader;
 import tools.vlab.kberry.core.baos.SerialBAOSConnection;
 import tools.vlab.kberry.core.baos.TimeoutException;
 import tools.vlab.kberry.core.devices.KNXDevice;
@@ -24,6 +28,9 @@ import java.util.Set;
 
 public class KBerryServer {
 
+    private static final Logger Log = LoggerFactory.getLogger(KBerryServer.class);
+
+    private final WorkerExecutor executor;
     private final SerialBAOSConnection connection;
     @Getter
     private final KNXDevices devices;
@@ -32,7 +39,8 @@ public class KBerryServer {
     @Getter
     private final Logics logicEngine;
 
-    private KBerryServer(SerialBAOSConnection connection, KNXDevices devices, CommandController commandController, Logics logicEngine) {
+    private KBerryServer(Vertx vertx, SerialBAOSConnection connection, KNXDevices devices, CommandController commandController, Logics logicEngine) {
+        this.executor = vertx.createSharedWorkerExecutor("BAOS");
         this.connection = connection;
         this.devices = devices;
         this.commandController = commandController;
@@ -40,6 +48,14 @@ public class KBerryServer {
     }
 
     public void startListening() {
+        this.executor.executeBlocking(() -> {
+            try {
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return null;
+        });
         System.out.println("KBerryServer is now listening... Press Ctrl+C to stop.");
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
         try {
@@ -66,15 +82,17 @@ public class KBerryServer {
         private GoogleCalendarService googleCalendarServiceProvider;
         private IcloudCalendarService icloudCalenderService;
 
-        public Builder(SerialBAOSConnection connection, String mqttAddress, int mqttPort) {
+        public Builder(SerialBAOSConnection connection, KNXDevices devices, String mqttAddress, int mqttPort) {
             this.connection = connection;
-            this.devices = new KNXDevices(connection);
             this.mqttHost = mqttAddress;
             this.mqttPort = mqttPort;
+            this.devices = devices;
         }
 
-        public static Builder create(String serialInterface, String mqttHost, int mqttPort, int timeoutMs, int retries) {
-            return new Builder(new SerialBAOSConnection(serialInterface, timeoutMs, retries), mqttHost, mqttPort);
+        public static Builder create(String serialInterface, String mqttHost, int mqttPort) {
+            var connection = new SerialBAOSConnection(serialInterface, 1000, 10);
+            var devices = new KNXDevices(connection);
+            return new Builder(connection, devices, mqttHost, mqttPort);
         }
 
         public <T extends KNXDevice> Builder register(T device) {
@@ -114,15 +132,18 @@ public class KBerryServer {
         }
 
         public KBerryServer build(String csvExportFileName) throws IOException, TimeoutException {
-            Vertx vertx = Vertx.vertx();
+            Log.info("KBerryServer export CSV ...");
             devices.exportCSV(Path.of(csvExportFileName));
+            Log.info("KBerryServer connect to BAOS ...");
             connection.connect();
+            Log.info("KBerryServer Statistics ...");
+            Vertx vertx = Vertx.vertx();
 
             // Statistics
             Statistics statistics = new Statistics();
             var statisticsScheduler = new StatisticsScheduler(statistics, devices);
 
-
+            Log.info("KBerryServer Service Provider ...");
 
             // ServiceProvider
             var costWattVerticle = new CostWattVerticle();
@@ -134,19 +155,25 @@ public class KBerryServer {
                     googleCalendarServiceProvider != null ? googleCalendarServiceProvider : icloudCalenderService
             );
 
+            Log.info("KBerryServer Logics Init ...");
             // Logic
-            var logicEngine = new Logics(devices, serviceProvider);
+            var logicEngine = new Logics(vertx, devices, serviceProvider, statistics);
             logics.forEach(logicEngine::register);
 
             // Commands
+            Log.info("KBerryServer MQTT Commands ...");
             var controller = new CommandController(mqttHost, mqttPort, devices, statistics, serviceProvider, scheduler, logicEngine);
             commands.forEach(controller::register);
 
+            Log.info("KBerryServer Deploy Verticles ...");
             return vertx.deployVerticle(statisticsScheduler)
                     .compose(ignore -> vertx.deployVerticle(weatherServiceProvider))
                     .compose(ignore -> vertx.deployVerticle(costWattVerticle))
                     .compose(ignore -> vertx.deployVerticle(controller))
-                    .map(ignore -> new KBerryServer(connection, devices, controller, logicEngine))
+                    .map(ignore -> {
+                        Log.info("KBerryServer Build Done ...");
+                        return new KBerryServer(vertx, connection, devices, controller, logicEngine);
+                    })
                     .await();
         }
 

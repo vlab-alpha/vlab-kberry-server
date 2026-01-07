@@ -1,9 +1,11 @@
 package tools.vlab.kberry.server.logic;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.vlab.kberry.core.PositionPath;
+import tools.vlab.kberry.core.devices.actor.Light;
 import tools.vlab.kberry.core.devices.actor.OnOffDevice;
 import tools.vlab.kberry.core.devices.actor.OnOffStatus;
 import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
@@ -18,7 +20,8 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
     private static final Logger Log = LoggerFactory.getLogger(AutoPresenceOffLogic.class);
 
     private final int followupTimeS;
-    private final ConcurrentHashMap<String, Periodic> periodics = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Timer> presence = new ConcurrentHashMap<>();
+    private Long timerId = null;
 
     private AutoPresenceOffLogic(int followupTimeS, Vector<PositionPath> paths) {
         super(paths);
@@ -32,10 +35,11 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
     @Override
     public void onOffStatusChanged(OnOffDevice onOffDevice, boolean isOn) {
         if (!contains(onOffDevice.getPositionPath())) return;
+
         if (isOn) {
-            startPeriodic(onOffDevice);
+            presence.put(onOffDevice.getPositionPath().getRoom(), Timer.init(onOffDevice.getPositionPath(), followupTimeS));
         } else {
-            stopPeriodic(onOffDevice);
+            presence.remove(onOffDevice.getPositionPath().getRoom());
         }
     }
 
@@ -43,80 +47,80 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
     public void presenceChanged(PresenceSensor sensor, boolean available) {
         if (!contains(sensor.getPositionPath())) return;
 
-        if (this.periodics.containsKey(sensor.getPositionPath().getId())) {
+        if (presence.containsKey(sensor.getPositionPath().getRoom())) {
+            Log.info("Presence change from room: {} {}", sensor.getPositionPath().getRoom(), available);
             if (available) {
-                this.periodics.get(sensor.getPositionPath().getId()).resetTimer();
+                presence.get(sensor.getPositionPath().getRoom()).reset();
             } else {
-                this.periodics.remove(sensor.getPositionPath().getId()).startTimer(followupTimeS);
+                Log.info("Timer start for room {}", sensor.getPositionPath().getRoom());
+                presence.get(sensor.getPositionPath().getRoom()).start();
             }
         }
     }
 
-    private void startPeriodic(OnOffDevice device) {
-        var timerId = this.getVertx().setPeriodic(1000, v -> {
-            try {
-                var periodic = periodics.get(device.getPositionPath().getId());
-                if (device.isOn() && !periodic.within()) {
-                    Log.info("Switching off light room {}",device.getPositionPath().getRoom());
-                    device.off();
-                    stopPeriodic(device);
+    private void startPeriodic() {
+        timerId = this.getVertx().setPeriodic(5000, v -> {
+            for (String room : presence.keySet()) {
+                var timer = presence.get(room);
+                if (!timer.within()) {
+                    try {
+                        Log.info("Switch off light for room: {}", room);
+                        this.getKnxDevices().getKNXDeviceByRoom(Light.class, timer.getPositionPath()).ifPresent(Light::off);
+                    } catch (Exception e) {
+                        Log.error("Check Periodic Presence failed for path {}!", timer.getPositionPath().getPath(), e);
+                    }
                 }
-            } catch (Exception e) {
-                Log.error("Check Periodic Presence failed", e);
             }
         });
-        periodics.put(device.getPositionPath().getId(), Periodic.init(timerId, device.getPositionPath()));
     }
 
-    private void stopPeriodic(OnOffDevice device) {
-        var periodic = periodics.get(device.getPositionPath().getId());
-        if (periodic != null) {
-            getVertx().cancelTimer(periodic.getTimerId());
-            periodics.remove(periodic.getPositionPath().getId());
-        }
+    private void checkCurrentLights() {
+        getRequiredPositionPaths().forEach(p -> this.getKnxDevices().getKNXDevice(Light.class, p)
+                .filter(Light::isOn)
+                .ifPresent(lightOn -> presence.put(
+                        lightOn.getPositionPath().getRoom(),
+                        Timer.init(lightOn.getPositionPath(), followupTimeS))
+                ));
     }
 
     @Override
     public void stop() {
-        this.periodics.values().forEach(periodic -> this.getVertx().cancelTimer(periodic.getTimerId()));
+        if (this.timerId != null) {
+            this.getVertx().cancelTimer(this.timerId);
+        }
     }
 
     @Override
     public void start() {
-        // Ignore
+        startPeriodic();
+        checkCurrentLights();
     }
 
-    static final class Periodic {
-        @Getter
-        private final long timerId;
-        @Getter
-        private final PositionPath positionPath;
-        private long timer;
-        @Getter
-        private Long followupTimeMs = null;
 
-        private Periodic(long timerId, PositionPath positionPath) {
-            this.timerId = timerId;
-            this.positionPath = positionPath;
+    @AllArgsConstructor
+    @Getter
+    static class Timer {
+        PositionPath positionPath;
+        long timer;
+        long followupTimeMS;
+
+        public static Timer init(PositionPath positionPath, long followupTimeS) {
+            return new Timer(positionPath, 0L, followupTimeS * 1000);
         }
 
-        public static Periodic init(long timerId, PositionPath positionPath) {
-            return new Periodic(timerId, positionPath);
-        }
-
-        public void startTimer(long followupTimeS) {
+        public void start() {
             this.timer = System.currentTimeMillis();
-            this.followupTimeMs = followupTimeS * 1000;
         }
 
-        public void resetTimer() {
-            this.followupTimeMs = null;
+        public void reset() {
+            this.timer = 0L;
         }
 
         public boolean within() {
-            return followupTimeMs == null || (System.currentTimeMillis()) - timer <= followupTimeMs;
+            var span = (System.currentTimeMillis() - this.timer);
+            Log.debug("TIMER MS: {} <= {} for room {}", span, this.followupTimeMS, this.positionPath.getRoom());
+            return span <= this.followupTimeMS;
         }
-
     }
 
 }

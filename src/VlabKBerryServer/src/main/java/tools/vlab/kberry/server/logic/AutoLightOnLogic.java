@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.actor.Light;
+import tools.vlab.kberry.core.devices.actor.OnOffDevice;
+import tools.vlab.kberry.core.devices.actor.OnOffStatus;
 import tools.vlab.kberry.core.devices.sensor.LuxSensor;
 import tools.vlab.kberry.core.devices.sensor.LuxStatus;
 import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
@@ -11,8 +13,9 @@ import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
 
 import java.util.Vector;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
-public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus {
+public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus, OnOffStatus {
 
     private static final Logger Log = LoggerFactory.getLogger(AutoLightOnLogic.class);
 
@@ -72,6 +75,11 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
         } catch (Exception e) {
             Log.error("Switching on light Failed for path {}", positionPath.getPath(), e);
         }
+
+    }
+
+    @Override
+    public void onOffStatusChanged(OnOffDevice onOffDevice, boolean isOn) {
 
     }
 }

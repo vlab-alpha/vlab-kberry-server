@@ -31,6 +31,7 @@ public class AutoPlugOnLogic extends Logic implements PresenceStatus {
 
     @Override
     public void presenceChanged(PresenceSensor sensor, boolean available) {
+        if (!contains(sensor.getPositionPath())) return;
         if (available) {
             this.getKnxDevices().getKNXDevice(Plug.class, sensor.getPositionPath()).ifPresent(OnOffDevice::on);
         }
