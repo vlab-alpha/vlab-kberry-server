@@ -1,6 +1,8 @@
 package tools.vlab.kberry.server.logic;
 
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.actor.OnOffDevice;
 import tools.vlab.kberry.core.devices.actor.OnOffStatus;
@@ -12,6 +14,8 @@ import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class AutoPresenceOffLogic extends Logic implements OnOffStatus, PresenceStatus {
+
+    private static final Logger Log = LoggerFactory.getLogger(AutoPresenceOffLogic.class);
 
     private final int followupTimeS;
     private final ConcurrentHashMap<String, Periodic> periodics = new ConcurrentHashMap<>();
@@ -39,20 +43,29 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
     public void presenceChanged(PresenceSensor sensor, boolean available) {
         if (!contains(sensor.getPositionPath())) return;
 
-        if (available && this.periodics.containsKey(sensor.getPositionPath().getId())) {
-            this.periodics.get(sensor.getPositionPath().getId()).resetTimer();
+        if (this.periodics.containsKey(sensor.getPositionPath().getId())) {
+            if (available) {
+                this.periodics.get(sensor.getPositionPath().getId()).resetTimer();
+            } else {
+                this.periodics.remove(sensor.getPositionPath().getId()).startTimer(followupTimeS);
+            }
         }
     }
 
     private void startPeriodic(OnOffDevice device) {
-        var timerId = this.getVertx().setPeriodic(1000, _ -> {
-            var periodic = periodics.get(device.getPositionPath().getId());
-            if (device.isOn() && !periodic.within()) {
-                device.off();
-                stopPeriodic(device);
+        var timerId = this.getVertx().setPeriodic(1000, v -> {
+            try {
+                var periodic = periodics.get(device.getPositionPath().getId());
+                if (device.isOn() && !periodic.within()) {
+                    Log.info("Switching off light room {}",device.getPositionPath().getRoom());
+                    device.off();
+                    stopPeriodic(device);
+                }
+            } catch (Exception e) {
+                Log.error("Check Periodic Presence failed", e);
             }
         });
-        periodics.put(device.getPositionPath().getId(), new Periodic(timerId, device.getPositionPath(), followupTimeS));
+        periodics.put(device.getPositionPath().getId(), Periodic.init(timerId, device.getPositionPath()));
     }
 
     private void stopPeriodic(OnOffDevice device) {
@@ -80,25 +93,28 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
         private final PositionPath positionPath;
         private long timer;
         @Getter
-        private final long followupTimeMs;
+        private Long followupTimeMs = null;
 
-        private Periodic(long timerId, PositionPath positionPath, long followupTimeMs) {
+        private Periodic(long timerId, PositionPath positionPath) {
             this.timerId = timerId;
             this.positionPath = positionPath;
-            this.timer = System.currentTimeMillis();
-            this.followupTimeMs = followupTimeMs;
         }
 
-        public static Periodic start(long timerId, PositionPath positionPath, long followupTimeS) {
-            return new Periodic(timerId, positionPath, followupTimeS * 1000);
+        public static Periodic init(long timerId, PositionPath positionPath) {
+            return new Periodic(timerId, positionPath);
+        }
+
+        public void startTimer(long followupTimeS) {
+            this.timer = System.currentTimeMillis();
+            this.followupTimeMs = followupTimeS * 1000;
         }
 
         public void resetTimer() {
-            timer = System.currentTimeMillis();
+            this.followupTimeMs = null;
         }
 
         public boolean within() {
-            return (System.currentTimeMillis()) - timer <= followupTimeMs;
+            return followupTimeMs == null || (System.currentTimeMillis()) - timer <= followupTimeMs;
         }
 
     }

@@ -68,12 +68,14 @@ public class IcloudCalendarService extends AbstractVerticle implements CalendarS
     }
 
     private static Instant toInstant(Temporal temporal) {
-        return switch (temporal) {
-            case ZonedDateTime zdtStart -> zdtStart.toInstant();
-            case LocalDateTime ldtStart -> ldtStart.atZone(ZoneId.systemDefault()).toInstant();
-            case LocalDate ldStart -> ldStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
-            default -> throw new IllegalArgumentException("Unsupported Temporal type: " + temporal.getClass());
-        };
+        if (temporal instanceof ZonedDateTime zdtStart) {
+            return zdtStart.toInstant();
+        } else if (temporal instanceof LocalDateTime ldtStart) {
+            return ldtStart.atZone(ZoneId.systemDefault()).toInstant();
+        } else if (temporal instanceof LocalDate ldStart) {
+            return ldStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        }
+        throw new IllegalArgumentException("Unsupported Temporal type: " + temporal.getClass());
     }
 
 

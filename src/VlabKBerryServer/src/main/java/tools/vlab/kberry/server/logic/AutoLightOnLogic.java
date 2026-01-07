@@ -1,17 +1,20 @@
 package tools.vlab.kberry.server.logic;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.actor.Light;
-import tools.vlab.kberry.core.devices.actor.OnOffDevice;
 import tools.vlab.kberry.core.devices.sensor.LuxSensor;
 import tools.vlab.kberry.core.devices.sensor.LuxStatus;
 import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
 import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
 
-import java.util.List;
 import java.util.Vector;
+import java.util.List;
 
 public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus {
+
+    private static final Logger Log = LoggerFactory.getLogger(AutoLightOnLogic.class);
 
     private final float minLux;
 
@@ -47,20 +50,28 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
 
     @Override
     public void luxChanged(LuxSensor sensor, float lux) {
-        var presence = this.getKnxDevices().getKNXDevice(PresenceSensor.class, sensor.getPositionPath());
-        if (presence.isPresent() && presence.get().isPresent()) {
-            switchOnLightByLux(sensor.getPositionPath());
+        if (minLux > 0) {
+            var presence = this.getKnxDevices().getKNXDevice(PresenceSensor.class, sensor.getPositionPath());
+            if (presence.isPresent() && presence.get().isPresent()) {
+                switchOnLightByLux(sensor.getPositionPath());
+            }
         }
     }
 
     // Problem only any light can be switch on, so if the room has many lights and you need specific light to switch on
     private void switchOnLightByLux(PositionPath positionPath) {
-        var light = this.getKnxDevices().getKNXDeviceByRoom(Light.class, positionPath);
-        var luxSensor = this.getKnxDevices().getKNXDeviceByRoom(LuxSensor.class, positionPath);
-        if (light.isPresent() && luxSensor.isPresent()) {
-            if (luxSensor.get().getCurrentLux() < minLux) {
-                light.get().on();
+        try {
+            if (contains(positionPath)) {
+                Log.info("Switching on light room {}", positionPath.getRoom());
+                var light = this.getKnxDevices().getKNXDeviceByRoom(Light.class, positionPath);
+                var luxSensor = this.getKnxDevices().getKNXDeviceByRoom(LuxSensor.class, positionPath);
+                if (minLux > 0 && light.isPresent() && luxSensor.isPresent() && luxSensor.get().getCurrentLux() < minLux) {
+                    light.get().on();
+                } else light.ifPresent(Light::on);
             }
-        } else light.ifPresent(OnOffDevice::on);
+        } catch (Exception e) {
+            Log.error("Switching on light Failed for path {}", positionPath.getPath(), e);
+        }
+
     }
 }
