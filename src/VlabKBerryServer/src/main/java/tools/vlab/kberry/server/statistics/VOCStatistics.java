@@ -1,20 +1,17 @@
 package tools.vlab.kberry.server.statistics;
 
-
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import tools.vlab.kberry.core.PositionPath;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
+import java.util.OptionalDouble;
 
 public class VOCStatistics extends Statistic<VOCStatistics.VOCEntry> {
 
-    public VOCStatistics() {
-        super("stat/voc.csv");
-    }
-
-    public VOCStatistics(String filePath) {
-        super(filePath);
+    public VOCStatistics(Vertx vertx) {
+        super(vertx, "stat/voc.csv");
     }
 
     @Override
@@ -27,82 +24,75 @@ public class VOCStatistics extends Statistic<VOCStatistics.VOCEntry> {
         return VOCEntry.fromString(raw);
     }
 
-    public double calculateAverage(long from, long to, String positionPath) {
-        List<VOCEntry> entries = getValues(from, to).values().stream().toList();
-
-        double sum = 0.0;
-        int count = 0;
-
-        for (VOCEntry e : entries) {
-            // Alle Einträge akzeptieren, die mit dem Such-Pfad beginnen
-            if (!e.positionPath().toLowerCase().startsWith(positionPath.toLowerCase())) continue;
-            sum += e.co2();
-            count++;
-        }
-
-        return (count == 0) ? Double.NaN : sum / count;
+    /**
+     * Durchschnittlicher CO2-Wert im Zeitraum.
+     * Filtert nach Präfix (Raum, Stockwerk, Gebäude)
+     */
+    public Future<Double> calculateAverage(long from, long to, PositionPath positionPath) {
+        String pathPrefix = positionPath.getPath().toLowerCase();
+        return getValues(from, to)
+                .map(values -> {
+                    OptionalDouble avg = values.values().stream()
+                            .filter(e -> e.positionPath().toLowerCase().startsWith(pathPrefix))
+                            .mapToDouble(VOCEntry::co2)
+                            .average();
+                    return avg.isPresent() ? avg.getAsDouble() : Double.NaN;
+                });
     }
 
-    public double getAverageLastHourByFloor(PositionPath positionPath) {
-        return getAverageLastHour(String.join("/", positionPath.getLocation(), positionPath.getFloor()));
+    /**
+     * Letzter verfügbarer CO2-Wert für den exakten Pfad
+     */
+    public Future<Double> getCurrentCo2(PositionPath positionPath) {
+        String path = positionPath.getPath();
+        return getValues(0, Instant.now().toEpochMilli())
+                .map(values -> values.values().stream()
+                        .filter(e -> e.positionPath.equalsIgnoreCase(path))
+                        .reduce((first, second) -> second) // letzter Eintrag
+                        .map(VOCEntry::co2)
+                        .orElse(null));
     }
 
-    public double getAverageLastDayByFloor(PositionPath positionPath) {
-        return getAverageLastDay(String.join("/", positionPath.getLocation(), positionPath.getFloor()));
-    }
-
-    public double getAverageLastHourByRoom(PositionPath positionPath) {
-        return getAverageLastHour(String.join("/", positionPath.getLocation(), positionPath.getFloor(), positionPath.getRoom()));
-    }
-
-    public Double getCurrentCo2(String positionPath) {
-        List<VOCEntry> entries = getValues(0, Instant.now().toEpochMilli()).values().stream().toList(); // alle Einträge
-        for (int i = entries.size() - 1; i >= 0; i--) {
-            VOCEntry e = entries.get(i);
-            if (e.positionPath().equals(positionPath)) {
-                return e.co2();
-            }
-        }
-        return null; // keine Daten vorhanden
-    }
-
-    public double getAverageLastHour(String positionPath) {
+    public Future<Double> getAverageLastHour(PositionPath positionPath) {
         long to = Instant.now().toEpochMilli();
         long from = Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli();
         return calculateAverage(from, to, positionPath);
     }
 
-    public double getAverageLastDay(String positionPath) {
+    public Future<Double> getAverageLastDay(PositionPath positionPath) {
         long to = Instant.now().toEpochMilli();
         long from = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
         return calculateAverage(from, to, positionPath);
     }
 
-    public double getAverageLastMonth(String positionPath) {
+    public Future<Double> getAverageLastMonth(PositionPath positionPath) {
         long to = Instant.now().toEpochMilli();
         long from = Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli();
         return calculateAverage(from, to, positionPath);
     }
 
-    public double getAverageLastYear(String positionPath) {
+    public Future<Double> getAverageLastYear(PositionPath positionPath) {
         long to = Instant.now().toEpochMilli();
         long from = Instant.now().minus(365, ChronoUnit.DAYS).toEpochMilli();
         return calculateAverage(from, to, positionPath);
     }
 
-    public boolean isEmpty(String positionPath) {
-        return getValuesLastHour().values().stream()
-                .noneMatch(val -> val.positionPath().equalsIgnoreCase(positionPath));
+    public Future<Boolean> hasValuesLastHour(PositionPath positionPath) {
+        String path = positionPath.getPath();
+        return getValuesLastHour()
+                .map(values -> values.values().stream()
+                        .anyMatch(v -> v.positionPath.equalsIgnoreCase(path)));
     }
 
-    public IndoorClimate getIndoorClimate(String positionPath) {
-        Double co2 = getCurrentCo2(positionPath);
-        if (co2 == null) return IndoorClimate.NORMAL; // keine Daten → neutral
-
-        if (co2 < 600) return IndoorClimate.GOOD;
-        if (co2 < 1000) return IndoorClimate.NORMAL;
-        if (co2 < 1500) return IndoorClimate.WARNING;
-        return IndoorClimate.BAD;
+    public Future<IndoorClimate> getIndoorClimate(PositionPath positionPath) {
+        return getCurrentCo2(positionPath)
+                .map(co2 -> {
+                    if (co2 == null) return IndoorClimate.NORMAL;
+                    if (co2 < 600) return IndoorClimate.GOOD;
+                    if (co2 < 1000) return IndoorClimate.NORMAL;
+                    if (co2 < 1500) return IndoorClimate.WARNING;
+                    return IndoorClimate.BAD;
+                });
     }
 
     public record VOCEntry(String positionPath, double co2) {
@@ -113,12 +103,11 @@ public class VOCStatistics extends Statistic<VOCStatistics.VOCEntry> {
         }
 
         public static VOCEntry fromString(String raw) {
-            String[] parts = raw.split("=");
+            String[] parts = raw.split("=", 2);
             if (parts.length != 2) {
                 throw new IllegalArgumentException("Ungültiger Eintrag: " + raw);
             }
             return new VOCEntry(parts[0], Double.parseDouble(parts[1]));
         }
     }
-
 }

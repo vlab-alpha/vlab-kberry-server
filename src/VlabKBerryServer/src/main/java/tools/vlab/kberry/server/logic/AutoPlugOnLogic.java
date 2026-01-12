@@ -6,17 +6,14 @@ import tools.vlab.kberry.core.devices.actor.Plug;
 import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
 import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
 
-import java.util.List;
-import java.util.Vector;
-
 public class AutoPlugOnLogic extends Logic implements PresenceStatus {
 
-    private AutoPlugOnLogic(Vector<PositionPath> paths) {
-        super(paths);
+    private AutoPlugOnLogic(PositionPath path) {
+        super(path);
     }
 
-    public static AutoPlugOnLogic at(PositionPath... positionPath) {
-        return new AutoPlugOnLogic(new Vector<>(List.of(positionPath)));
+    public static AutoPlugOnLogic at(PositionPath positionPath) {
+        return new AutoPlugOnLogic(positionPath);
     }
 
     @Override
@@ -31,7 +28,7 @@ public class AutoPlugOnLogic extends Logic implements PresenceStatus {
 
     @Override
     public void presenceChanged(PresenceSensor sensor, boolean available) {
-        if (!contains(sensor.getPositionPath())) return;
+        if (!isSameRoom(sensor)) return;
         if (available) {
             this.getKnxDevices().getKNXDevice(Plug.class, sensor.getPositionPath()).ifPresent(OnOffDevice::on);
         }

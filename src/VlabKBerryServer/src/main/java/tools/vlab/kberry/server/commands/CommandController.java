@@ -20,6 +20,8 @@ import tools.vlab.kberry.server.statistics.Statistics;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class CommandController extends AbstractVerticle {
@@ -32,7 +34,8 @@ public class CommandController extends AbstractVerticle {
     private final ServiceProviders serviceProviders;
     private final Schedule schedule;
     private final Logics logics;
-    private List<Command> commandList = new ArrayList<>();
+    @Getter
+    private final List<Command> commandList = new ArrayList<>();
     @Setter
     @Getter
     private MqttClient client;
@@ -48,15 +51,14 @@ public class CommandController extends AbstractVerticle {
         this.mqttPort = mqttPort;
     }
 
-    public void register(Command... commandList) {
-        this.commandList = Stream.of(commandList)
-                .peek(cmd -> cmd.setStatistics(statistics))
-                .peek(cmd -> cmd.setKnxDevices(knxDevices))
-                .peek(cmd -> cmd.setServiceProviders(serviceProviders))
-                .peek(cmd -> cmd.setSchedule(schedule))
-                .peek(cmd -> cmd.setLogics(logics))
-                .peek(Command::init)
-                .toList();
+    public void register(Command command) {
+        command.setStatistics(statistics);
+        command.setServiceProviders(serviceProviders);
+        command.setSchedule(schedule);
+        command.setLogics(logics);
+        command.setKnxDevices(knxDevices);
+        command.init();
+        this.commandList.add(command);
     }
 
 
@@ -81,14 +83,17 @@ public class CommandController extends AbstractVerticle {
     }
 
     private void subscribeCommands() {
-        for (Command command : this.commandList) {
-            String topicRequest = "request/" + command.topic();
-            this.client.subscribe(topicRequest, 0)
-                    .onSuccess(handler -> {
-                        System.out.println("Subscribed to: " + topicRequest);
-                    })
-                    .onFailure(cause -> System.err.println("Failed to subscribe to " + topicRequest + ": " + cause.getMessage()));
-        }
+        Map<String, Integer> subscription = this.commandList.stream()
+                .collect(Collectors.toMap(
+                        command -> "request/" + command.topic().getTopic(),
+                        command -> MqttQoS.EXACTLY_ONCE.value()
+                ));
+        this.client.subscribe(subscription)
+                .onSuccess(handler -> {
+                    var result = String.join("\n - ", subscription.keySet());
+                    Log.info("Subscribed to: {}\n", result);
+                })
+                .onFailure(cause -> Log.error("Failed to subscribe to commands! ", cause));
     }
 
     private void setupMessageHandler() {
@@ -98,22 +103,35 @@ public class CommandController extends AbstractVerticle {
 
             String topicCommand = topic.substring("request/".length());
             var payload = message.payload().toString();
-            Log.debug("Received {} message: {}", topic, payload);
+            Log.info("Received {} message: {}", topic, payload);
             JsonObject json = payload != null && !payload.isEmpty() ? new JsonObject(payload) : new JsonObject();
+            boolean found = false;
             for (Command command : commandList) {
-                if (command.getMqttTopic().equalsIgnoreCase(topicCommand)) {
-                    command.execute(json)
-                            .onSuccess(response -> {
-                                response.ifPresent(resp -> publishResponse(command.getMqttTopic(), resp));
-                            })
-                            .onFailure(cause -> {
-                                Log.error("Failed to publish to topic {}", command.topic());
-                                Log.error("Failed to publish: ", cause);
-                            });
+                if (command instanceof Scene scene && scene.getTopic().equalsIgnoreCase(topicCommand)) {
+                    found = true;
+                    executeCommand(command, json);
+                } else if (command.topic().getTopic().equalsIgnoreCase(topicCommand)) {
+                    found = true;
+                    executeCommand(command, json);
                 }
+            }
+            if (!found) {
+                Log.warn("Unknown topic command {}", topicCommand);
             }
         });
     }
+
+    private void executeCommand(Command command, JsonObject json) {
+        command.execute(json)
+                .onSuccess(response -> {
+                    response.ifPresent(resp -> publishResponse(command.topic().getTopic(), resp));
+                })
+                .onFailure(cause -> {
+                    Log.error("Failed to publish to topic {}", command.topic());
+                    Log.error("Failed to publish: ", cause);
+                });
+    }
+
 
     private void publishResponse(String topic, JsonObject response) {
         String responseTopic = "response/" + topic;

@@ -11,8 +11,6 @@ import tools.vlab.kberry.core.devices.actor.OnOffStatus;
 import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
 import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
 
-import java.util.List;
-import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class AutoPresenceOffLogic extends Logic implements OnOffStatus, PresenceStatus {
@@ -20,33 +18,39 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
     private static final Logger Log = LoggerFactory.getLogger(AutoPresenceOffLogic.class);
 
     private final int followupTimeS;
-    private final ConcurrentHashMap<String, Timer> presence = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, OffTimer> presence = new ConcurrentHashMap<>();
     private Long timerId = null;
 
-    private AutoPresenceOffLogic(int followupTimeS, Vector<PositionPath> paths) {
-        super(paths);
+    private AutoPresenceOffLogic(int followupTimeS, PositionPath pathOfLight) {
+        super(pathOfLight);
         this.followupTimeS = followupTimeS;
     }
 
-    public static AutoPresenceOffLogic at(int followupTimeS, PositionPath... positionPath) {
-        return new AutoPresenceOffLogic(followupTimeS, new Vector<>(List.of(positionPath)));
+    public static AutoPresenceOffLogic at(int followupTimeS, PositionPath pathOfLight) {
+        return new AutoPresenceOffLogic(followupTimeS, pathOfLight);
     }
 
     @Override
     public void onOffStatusChanged(OnOffDevice onOffDevice, boolean isOn) {
-        if (!contains(onOffDevice.getPositionPath())) return;
+        if (!isSamePosition(onOffDevice)) {
+            Log.info("Ignore {}",onOffDevice.getPositionPath());
+            return;
+        }
 
         if (isOn) {
-            presence.put(onOffDevice.getPositionPath().getRoom(), Timer.init(onOffDevice.getPositionPath(), followupTimeS));
+            Log.info("Init Timer  {}",onOffDevice.getPositionPath());
+            presence.put(onOffDevice.getPositionPath().getRoom(), OffTimer.init(onOffDevice.getPositionPath(), followupTimeS));
         } else {
+            Log.info("Remove Timer for {}",onOffDevice.getPositionPath());
             presence.remove(onOffDevice.getPositionPath().getRoom());
         }
     }
 
     @Override
     public void presenceChanged(PresenceSensor sensor, boolean available) {
-        if (!contains(sensor.getPositionPath())) return;
+        if (!isSameRoom(sensor)) return;
 
+        Log.info("SWITCH OFF Presence {}",sensor.getPositionPath());
         if (presence.containsKey(sensor.getPositionPath().getRoom())) {
             Log.info("Presence change from room: {} {}", sensor.getPositionPath().getRoom(), available);
             if (available) {
@@ -75,12 +79,12 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
     }
 
     private void checkCurrentLights() {
-        getRequiredPositionPaths().forEach(p -> this.getKnxDevices().getKNXDevice(Light.class, p)
+        this.getKnxDevices().getKNXDevice(Light.class, this.getPositionPath())
                 .filter(Light::isOn)
                 .ifPresent(lightOn -> presence.put(
                         lightOn.getPositionPath().getRoom(),
-                        Timer.init(lightOn.getPositionPath(), followupTimeS))
-                ));
+                        OffTimer.init(lightOn.getPositionPath(), followupTimeS))
+                );
     }
 
     @Override
@@ -99,13 +103,13 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
 
     @AllArgsConstructor
     @Getter
-    static class Timer {
+    static class OffTimer {
         PositionPath positionPath;
-        long timer;
+        Long timer = null;
         long followupTimeMS;
 
-        public static Timer init(PositionPath positionPath, long followupTimeS) {
-            return new Timer(positionPath, 0L, followupTimeS * 1000);
+        public static OffTimer init(PositionPath positionPath, long followupTimeS) {
+            return new OffTimer(positionPath, null, followupTimeS * 1000);
         }
 
         public void start() {
@@ -113,13 +117,16 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
         }
 
         public void reset() {
-            this.timer = 0L;
+            this.timer = null;
         }
 
         public boolean within() {
-            var span = (System.currentTimeMillis() - this.timer);
-            Log.debug("TIMER MS: {} <= {} for room {}", span, this.followupTimeMS, this.positionPath.getRoom());
-            return span <= this.followupTimeMS;
+            if (this.timer != null) {
+                var span = (System.currentTimeMillis() - this.timer);
+                Log.debug("TIMER MS: {} <= {} for room {}", span, this.followupTimeMS, this.positionPath.getRoom());
+                return span <= this.followupTimeMS;
+            }
+            return true;
         }
     }
 

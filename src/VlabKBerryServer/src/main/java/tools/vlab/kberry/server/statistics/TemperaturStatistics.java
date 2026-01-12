@@ -1,22 +1,21 @@
 package tools.vlab.kberry.server.statistics;
 
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import tools.vlab.kberry.core.PositionPath;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.stream.Collectors;
 
-public class TemperaturStatistics extends Statistic<TemperaturStatistics.TemperatureEntry> {
+public class TemperaturStatistics
+        extends Statistic<TemperaturStatistics.TemperatureEntry> {
 
-    public TemperaturStatistics() throws IOException {
-        super("stat/temperature.csv");
-    }
-
-    public TemperaturStatistics(String filePath) throws IOException {
-        super(filePath);
+    public TemperaturStatistics(Vertx vertx) {
+        super(vertx, "stat/temperature.csv");
     }
 
     @Override
@@ -29,91 +28,70 @@ public class TemperaturStatistics extends Statistic<TemperaturStatistics.Tempera
         return TemperatureEntry.fromString(line);
     }
 
-    /**
-     * Durchschnittstemperatur im Zeitraum
-     */
-    public double calculateAverage(long from, long to, String positionPath) {
-        List<TemperatureEntry> entries = getValues(from, to).values().stream().toList();
+    public Future<Double> calculateAverage(long from, long to, PositionPath positionPath) {
+        return getValues(from, to)
+                .map(values -> {
+                    OptionalDouble avg = values.values().stream()
+                            .filter(e -> e.positionPath().equalsIgnoreCase(positionPath.getPath()))
+                            .mapToDouble(TemperatureEntry::temperature)
+                            .average();
 
-        double sum = 0.0;
-        int count = 0;
-
-        for (TemperatureEntry e : entries) {
-            if (!e.positionPath().equalsIgnoreCase(positionPath)) continue;
-            sum += e.temperature();
-            count++;
-        }
-
-        return (count == 0) ? Double.NaN : sum / count;
+                    return avg.isPresent() ? avg.getAsDouble() : Double.NaN;
+                });
     }
 
-    public Double getCurrentTemperature(String positionPath) {
-        List<TemperatureEntry> entries = getValues(0, Instant.now().toEpochMilli()).values().stream().toList(); // alle Einträge
-        for (int i = entries.size() - 1; i >= 0; i--) {
-            TemperatureEntry e = entries.get(i);
-            if (e.positionPath().equals(positionPath)) {
-                return e.temperature();
-            }
-        }
-        return null; // keine Daten vorhanden
+    public Future<Double> getCurrentTemperature(PositionPath positionPath) {
+        return getValues(0, Instant.now().toEpochMilli())
+                .map(values -> values.values().stream()
+                        .filter(e -> e.positionPath().equalsIgnoreCase(positionPath.getPath()))
+                        .reduce((first, second) -> second) // letzter Eintrag
+                        .map(TemperatureEntry::temperature)
+                        .orElse(null));
     }
 
-    /**
-     * Durchschnitt letzte Stunde
-     */
-    public double getAverageLastHour(String positionPath) {
+    public Future<Double> getAverageLastHour(PositionPath positionPath) {
         long to = Instant.now().toEpochMilli();
         long from = Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli();
         return calculateAverage(from, to, positionPath);
     }
 
-    /**
-     * Durchschnitt letzter Tag
-     */
-    public double getAverageLastDay(String positionPath) {
+    public Future<Double> getAverageLastDay(PositionPath positionPath) {
         long to = Instant.now().toEpochMilli();
         long from = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
         return calculateAverage(from, to, positionPath);
     }
 
-
-    /**
-     * Durchschnitt letzter Monat (30 Tage)
-     */
-    public double getAverageLastMonth(String positionPath) {
+    public Future<Double> getAverageLastMonth(PositionPath positionPath) {
         long to = Instant.now().toEpochMilli();
         long from = Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli();
         return calculateAverage(from, to, positionPath);
     }
 
-    /**
-     * Durchschnitt letztes Jahr (365 Tage)
-     */
-    public double getAverageLastYear(String positionPath) {
+    public Future<Double> getAverageLastYear(PositionPath positionPath) {
         long to = Instant.now().toEpochMilli();
         long from = Instant.now().minus(365, ChronoUnit.DAYS).toEpochMilli();
         return calculateAverage(from, to, positionPath);
     }
 
-
-    public boolean isEmpty(String positionPath) {
-        return getValuesLastHour().values().stream()
-                .anyMatch(val -> val.positionPath().equalsIgnoreCase(positionPath));
+    public Future<Boolean> hasValuesLastHour(PositionPath positionPath) {
+        return getValuesLastHour()
+                .map(values -> values.values().stream()
+                        .anyMatch(v -> v.positionPath().equalsIgnoreCase(positionPath.getPath())));
     }
 
-    public Map<Long, Double> getValuesLastDay(PositionPath positionPath) {
-        return getValuesLastHour().entrySet().stream()
-                .filter(entry -> entry.getValue().positionPath.equalsIgnoreCase(positionPath.toString()))
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        keyValue -> keyValue.getValue().temperature,
-                        (existing, replacement) -> replacement
-                ));
+    public Future<Map<Long, Double>> getValuesLastDay(PositionPath positionPath) {
+        return getValuesLastDay()
+                .map(values -> values.entrySet().stream()
+                        .filter(e -> e.getValue().positionPath()
+                                .equalsIgnoreCase(positionPath.getPath()))
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                e -> e.getValue().temperature(),
+                                (a, b) -> b,
+                                LinkedHashMap::new
+                        )));
     }
 
-    /**
-     * Eintrag: Raum + Temperaturwert
-     */
     public record TemperatureEntry(String positionPath, double temperature) {
 
         @Override
@@ -122,7 +100,7 @@ public class TemperaturStatistics extends Statistic<TemperaturStatistics.Tempera
         }
 
         public static TemperatureEntry fromString(String s) {
-            String[] parts = s.split("=");
+            String[] parts = s.split("=", 2);
             if (parts.length != 2) {
                 throw new IllegalArgumentException("Ungültiger Eintrag: " + s);
             }

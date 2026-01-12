@@ -5,20 +5,19 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import tools.vlab.kberry.core.PositionPath;
+import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.KNXDevices;
 import tools.vlab.kberry.core.devices.StatusListener;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
 import tools.vlab.kberry.server.statistics.Statistics;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.Vector;
 
 @Getter
 public abstract class Logic implements StatusListener {
 
     @Getter(AccessLevel.PRIVATE)
-    private final Vector<PositionPath> paths;
+    private final PositionPath path;
     @Setter
     private KNXDevices knxDevices;
     @Setter
@@ -29,12 +28,16 @@ public abstract class Logic implements StatusListener {
     private final String id = UUID.randomUUID().toString();
 
 
-    protected Logic(Vector<PositionPath> paths) {
-        this.paths = paths;
+    protected Logic(PositionPath path) {
+        this.path = path;
     }
 
-    public boolean contains(PositionPath path) {
-        return paths.stream().anyMatch(p -> p.isSame(path));
+    public boolean isSamePosition(KNXDevice device) {
+        return path.isSame(device.getPositionPath());
+    }
+
+    public boolean isSameRoom(KNXDevice device) {
+        return path.sameRoom(device.getPositionPath());
     }
 
     public void start(Vertx vertx) {
@@ -42,8 +45,8 @@ public abstract class Logic implements StatusListener {
         this.start();
     }
 
-    protected List<PositionPath> getRequiredPositionPaths() {
-        return paths;
+    protected PositionPath getPositionPath() {
+        return path;
     }
 
     public abstract void stop();

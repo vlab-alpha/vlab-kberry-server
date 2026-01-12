@@ -1,17 +1,16 @@
 package tools.vlab.kberry.server;
 
 import io.vertx.core.Vertx;
-import io.vertx.core.WorkerExecutor;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.vlab.kberry.core.baos.BAOSReader;
 import tools.vlab.kberry.core.baos.SerialBAOSConnection;
 import tools.vlab.kberry.core.baos.TimeoutException;
 import tools.vlab.kberry.core.devices.KNXDevice;
 import tools.vlab.kberry.core.devices.KNXDevices;
 import tools.vlab.kberry.server.commands.Command;
 import tools.vlab.kberry.server.commands.CommandController;
+import tools.vlab.kberry.server.commands.Scene;
 import tools.vlab.kberry.server.logic.Logic;
 import tools.vlab.kberry.server.logic.Logics;
 import tools.vlab.kberry.server.scheduler.ScheduleEngine;
@@ -24,13 +23,14 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class KBerryServer {
 
     private static final Logger Log = LoggerFactory.getLogger(KBerryServer.class);
 
-    private final WorkerExecutor executor;
     private final SerialBAOSConnection connection;
     @Getter
     private final KNXDevices devices;
@@ -38,36 +38,32 @@ public class KBerryServer {
     private final CommandController commandController;
     @Getter
     private final Logics logicEngine;
+    @Getter
+    private final Statistics statistics;
 
-    private KBerryServer(Vertx vertx, SerialBAOSConnection connection, KNXDevices devices, CommandController commandController, Logics logicEngine) {
-        this.executor = vertx.createSharedWorkerExecutor("BAOS");
+    private KBerryServer(SerialBAOSConnection connection, KNXDevices devices, CommandController commandController, Logics logicEngine, Statistics statistics) {
         this.connection = connection;
         this.devices = devices;
         this.commandController = commandController;
         this.logicEngine = logicEngine;
+        this.statistics = statistics;
     }
 
     public void startListening() {
-        this.executor.executeBlocking(() -> {
-            try {
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            return null;
-        });
-        System.out.println("KBerryServer is now listening... Press Ctrl+C to stop.");
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
-        try {
-            Thread.currentThread().join();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        System.out.println("KBerryServer is now listening... Press Ctrl+C to stop.");
     }
 
     public void shutdown() {
         logicEngine.stop();
         connection.disconnect();
+    }
+
+    public List<Scene> getScenes() {
+        return this.commandController.getCommandList().stream()
+                .filter(command -> command instanceof Scene)
+                .map(command -> ((Scene) command))
+                .collect(Collectors.toList());
     }
 
     public static class Builder {
@@ -140,7 +136,7 @@ public class KBerryServer {
             Vertx vertx = Vertx.vertx();
 
             // Statistics
-            Statistics statistics = new Statistics();
+            Statistics statistics = new Statistics(vertx);
             var statisticsScheduler = new StatisticsScheduler(statistics, devices);
 
             Log.info("KBerryServer Service Provider ...");
@@ -172,7 +168,7 @@ public class KBerryServer {
                     .compose(ignore -> vertx.deployVerticle(controller))
                     .map(ignore -> {
                         Log.info("KBerryServer Build Done ...");
-                        return new KBerryServer(vertx, connection, devices, controller, logicEngine);
+                        return new KBerryServer(connection, devices, controller, logicEngine, statistics);
                     })
                     .await();
         }

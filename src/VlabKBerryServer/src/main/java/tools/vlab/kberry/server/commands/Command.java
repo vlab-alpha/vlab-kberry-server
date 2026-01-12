@@ -34,6 +34,7 @@ public abstract class Command {
         return idGenerator.getId(tClass, name);
     }
 
+    // TODO: löschen
     public String getMqttTopic() {
         return "command/" + topic().getTopic();
     }

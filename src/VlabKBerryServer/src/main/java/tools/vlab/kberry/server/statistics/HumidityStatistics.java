@@ -1,15 +1,18 @@
 package tools.vlab.kberry.server.statistics;
 
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import tools.vlab.kberry.core.PositionPath;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
+import java.util.Map;
 
-public class HumidityStatistics extends Statistic<HumidityStatistics.HumidityEntry> {
+public class HumidityStatistics
+        extends Statistic<HumidityStatistics.HumidityEntry> {
 
-    public HumidityStatistics() {
-        super("stat/humidity.csv");
+    public HumidityStatistics(Vertx vertx) {
+        super(vertx, "stat/humidity.csv");
     }
 
     @Override
@@ -22,80 +25,66 @@ public class HumidityStatistics extends Statistic<HumidityStatistics.HumidityEnt
         return HumidityEntry.fromString(raw);
     }
 
-    public double getAverageLastHourByFloor(PositionPath positionPath) {
-        return getAverageLastHour(String.join("/", positionPath.getLocation()));
+    public Future<Double> calculateAverage(long from, long to, PositionPath positionPath) {
+        return getValues(from, to)
+                .map(values -> values.values().stream()
+                        .filter(e -> e.positionPath.toLowerCase().startsWith(positionPath.getPath().toLowerCase()))
+                        .mapToDouble(HumidityEntry::humidity)
+                        .average()
+                        .orElse(Double.NaN));
     }
 
-    public double getAverageLastDayByFloor(PositionPath positionPath) {
-        return getAverageLastDay(String.join("/", positionPath.getLocation(), positionPath.getFloor()));
+    public Future<Float> getCurrentHumidity(PositionPath positionPath) {
+        return getValues(0, Instant.now().toEpochMilli())
+                .map(values -> values.entrySet().stream()
+                        .sorted((a, b) -> Long.compare(b.getKey(), a.getKey()))
+                        .map(Map.Entry::getValue)
+                        .filter(e -> e.positionPath().equalsIgnoreCase(positionPath.getPath()))
+                        .map(HumidityEntry::humidity)
+                        .findFirst()
+                        .orElse(null)
+                );
     }
 
-    public double getAverageLastHourByRoom(PositionPath positionPath) {
-        return getAverageLastHour(String.join("/", positionPath.getLocation(), positionPath.getFloor(), positionPath.getRoom()));
+    public Future<Double> getAverageLastHour(PositionPath positionPath) {
+        return calculateAverage(
+                Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                positionPath
+        );
     }
 
-    /**
-     * Durchschnittlicher Feuchtigkeitswert im Zeitraum.
-     * positionPath kann Raum, Stockwerk oder Haus sein (Prefix-Matching).
-     */
-    public double calculateAverage(long from, long to, String positionPath) {
-        List<HumidityEntry> entries = getValues(from, to).values().stream().toList();
-
-        double sum = 0.0;
-        int count = 0;
-
-        for (HumidityEntry e : entries) {
-            if (!e.positionPath().toLowerCase().startsWith(positionPath.toLowerCase())) continue;
-            sum += e.humidity();
-            count++;
-        }
-
-        return (count == 0) ? Double.NaN : sum / count;
+    public Future<Double> getAverageLastDay(PositionPath positionPath) {
+        return calculateAverage(
+                Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                positionPath
+        );
     }
 
-    public Float getCurrentHumidity(String positionPath) {
-        List<HumidityEntry> entries = getValues(0, Instant.now().toEpochMilli()).values().stream().toList(); // alle Einträge
-        for (int i = entries.size() - 1; i >= 0; i--) {
-            HumidityEntry e = entries.get(i);
-            if (e.positionPath().toLowerCase().startsWith(positionPath.toLowerCase())) {
-                return e.humidity();
-            }
-        }
-        return null; // keine Daten vorhanden
+    public Future<Double> getAverageLastMonth(PositionPath positionPath) {
+        return calculateAverage(
+                Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                positionPath
+        );
     }
 
-    public double getAverageLastHour(String positionPath) {
-        long to = Instant.now().toEpochMilli();
-        long from = Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli();
-        return calculateAverage(from, to, positionPath);
+    public Future<Double> getAverageLastYear(PositionPath positionPath) {
+        return calculateAverage(
+                Instant.now().minus(365, ChronoUnit.DAYS).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                positionPath
+        );
     }
 
-    public double getAverageLastDay(String positionPath) {
-        long to = Instant.now().toEpochMilli();
-        long from = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
-        return calculateAverage(from, to, positionPath);
+    public Future<Boolean> isEmpty(PositionPath positionPath) {
+        return getValuesLastHour()
+                .map(values -> values.values().stream()
+                        .noneMatch(v -> v.positionPath.toLowerCase()
+                                .startsWith(positionPath.getPath().toLowerCase())));
     }
 
-    public double getAverageLastMonth(String positionPath) {
-        long to = Instant.now().toEpochMilli();
-        long from = Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli();
-        return calculateAverage(from, to, positionPath);
-    }
-
-    public double getAverageLastYear(String positionPath) {
-        long to = Instant.now().toEpochMilli();
-        long from = Instant.now().minus(365, ChronoUnit.DAYS).toEpochMilli();
-        return calculateAverage(from, to, positionPath);
-    }
-
-    public boolean isEmpty(String positionPath) {
-        return getValuesLastHour().values().stream()
-                .noneMatch(val -> val.positionPath().toLowerCase().startsWith(positionPath.toLowerCase()));
-    }
-
-    /**
-     * Eintrag: Raum + Luftfeuchtigkeit
-     */
     public record HumidityEntry(String positionPath, float humidity) {
 
         @Override
@@ -104,7 +93,7 @@ public class HumidityStatistics extends Statistic<HumidityStatistics.HumidityEnt
         }
 
         public static HumidityEntry fromString(String s) {
-            String[] parts = s.split("=");
+            String[] parts = s.split("=", 2);
             if (parts.length != 2) {
                 throw new IllegalArgumentException("Invalid Entry: " + s);
             }

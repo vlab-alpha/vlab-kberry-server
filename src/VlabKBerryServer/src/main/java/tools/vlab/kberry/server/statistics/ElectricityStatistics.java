@@ -1,23 +1,25 @@
 package tools.vlab.kberry.server.statistics;
 
-
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.server.serviceProvider.CostWattServiceProvider;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 
 /**
  * Statistik über Stromverbrauch pro Raum
  */
-public class ElectricityStatistics extends Statistic<ElectricityStatistics.ElectricityEntry> {
+public class ElectricityStatistics
+        extends Statistic<ElectricityStatistics.ElectricityEntry> {
 
-    public ElectricityStatistics() {
-        super("stat/electricity.csv");
+    public ElectricityStatistics(Vertx vertx) {
+        super(vertx, "stat/electricity.csv");
     }
 
-    public ElectricityStatistics(String path) {
-        super(path);
+    public ElectricityStatistics(Vertx vertx, String path) {
+        super(vertx, path);
     }
 
     @Override
@@ -34,78 +36,112 @@ public class ElectricityStatistics extends Statistic<ElectricityStatistics.Elect
     // Verbrauchsberechnung
     // ───────────────────────────────
 
-    private double calculateConsumption(long from, long to, String positionPath) {
-        List<ElectricityEntry> entries = getValues(from, to).values().stream()
-                .filter(e -> e.positionPath().equals(positionPath))
-                .toList();
-
-        if (entries.isEmpty()) {
-            return 0.0;
-        }
-
-        return entries.stream()
-                .mapToDouble(ElectricityEntry::power)
-                .average()
-                .orElse(0.0);
+    private Future<Double> calculateConsumption(long from, long to, PositionPath positionPath) {
+        return getValues(from, to)
+                .map(values ->
+                        values.values().stream()
+                                .filter(e -> e.positionPath().equalsIgnoreCase(positionPath.getPath()))
+                                .mapToDouble(ElectricityEntry::power)
+                                .average()
+                                .orElse(0.0)
+                );
     }
 
+    // ───────────────────────────────
     // Verbrauch nach Zeiträumen
-    public double getConsumptionLastHour(String positionPath) {
-        long to = Instant.now().toEpochMilli();
-        long from = Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli();
-        return calculateConsumption(from, to, positionPath);
+    // ───────────────────────────────
+
+    public Future<Double> getConsumptionLastHour(PositionPath positionPath) {
+        return calculateConsumption(
+                Instant.now().minus(1, ChronoUnit.HOURS).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                positionPath
+        );
     }
 
-    public double getConsumptionLastDay(String positionPath) {
-        long to = Instant.now().toEpochMilli();
-        long from = Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli();
-        return calculateConsumption(from, to, positionPath);
+    public Future<Double> getConsumptionLastDay(PositionPath positionPath) {
+        return calculateConsumption(
+                Instant.now().minus(1, ChronoUnit.DAYS).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                positionPath
+        );
     }
 
-    public double getConsumptionLastMonth(String positionPath) {
-        long to = Instant.now().toEpochMilli();
-        long from = Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli();
-        return calculateConsumption(from, to, positionPath);
+    public Future<Double> getConsumptionLastMonth(PositionPath positionPath) {
+        return calculateConsumption(
+                Instant.now().minus(30, ChronoUnit.DAYS).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                positionPath
+        );
     }
 
-    public double getConsumptionLastYear(String positionPath) {
-        long to = Instant.now().toEpochMilli();
-        long from = Instant.now().minus(365, ChronoUnit.DAYS).toEpochMilli();
-        return calculateConsumption(from, to, positionPath);
+    public Future<Double> getConsumptionLastYear(PositionPath positionPath) {
+        return calculateConsumption(
+                Instant.now().minus(365, ChronoUnit.DAYS).toEpochMilli(),
+                Instant.now().toEpochMilli(),
+                positionPath
+        );
     }
 
     // ───────────────────────────────
     // Kostenberechnung
     // ───────────────────────────────
 
-    public double getCostLastDay(String positionPath, CostWattServiceProvider calculator) {
-        return calculator.calculateCost(getConsumptionLastDay(positionPath));
+    public Future<Double> getCostLastDay(
+            PositionPath positionPath,
+            CostWattServiceProvider calculator) {
+
+        return getConsumptionLastDay(positionPath)
+                .map(calculator::calculateCost);
     }
 
-    public double getCostLastMonth(String positionPath, CostWattServiceProvider calculator) {
-        return calculator.calculateCost(getConsumptionLastMonth(positionPath));
+    public Future<Double> getCostLastMonth(
+            PositionPath positionPath,
+            CostWattServiceProvider calculator) {
+
+        return getConsumptionLastMonth(positionPath)
+                .map(calculator::calculateCost);
     }
 
-    public double getCostLastYear(String positionPath, CostWattServiceProvider calculator) {
-        return calculator.calculateCost(getConsumptionLastYear(positionPath));
+    public Future<Double> getCostLastYear(
+            PositionPath positionPath,
+            CostWattServiceProvider calculator) {
+
+        return getConsumptionLastYear(positionPath)
+                .map(calculator::calculateCost);
     }
 
-    public double getCostSavingDay(String positionPath, CostWattServiceProvider calculator) {
-        return calculator.calculateSavings(getConsumptionLastDay(positionPath));
+    public Future<Double> getCostSavingDay(
+            PositionPath positionPath,
+            CostWattServiceProvider calculator) {
+
+        return getConsumptionLastDay(positionPath)
+                .map(calculator::calculateSavings);
     }
 
-    public double getCostSavingMonth(String positionPath, CostWattServiceProvider calculator) {
-        return calculator.calculateSavings(getConsumptionLastMonth(positionPath));
+    public Future<Double> getCostSavingMonth(
+            PositionPath positionPath,
+            CostWattServiceProvider calculator) {
+
+        return getConsumptionLastMonth(positionPath)
+                .map(calculator::calculateSavings);
     }
 
-    public double getCostSavingYear(String positionPath, CostWattServiceProvider calculator) {
-        return calculator.calculateSavings(getConsumptionLastYear(positionPath));
+    public Future<Double> getCostSavingYear(
+            PositionPath positionPath,
+            CostWattServiceProvider calculator) {
+
+        return getConsumptionLastYear(positionPath)
+                .map(calculator::calculateSavings);
     }
+
+    // ───────────────────────────────
+    // Entry
+    // ───────────────────────────────
 
     /**
-     * Eintrag: PositionPath + Verbrauch (in Wattstunden oder kWh, je nachdem wie du speicherst)
-     *
-     * @param power Verbrauchswert
+     * Eintrag: PositionPath + Verbrauch
+     * (W, Wh oder kWh – je nach Speicherung)
      */
     public record ElectricityEntry(String positionPath, double power) {
 
@@ -115,7 +151,7 @@ public class ElectricityStatistics extends Statistic<ElectricityStatistics.Elect
         }
 
         public static ElectricityEntry fromString(String raw) {
-            String[] parts = raw.split("=");
+            String[] parts = raw.split("=", 2);
             if (parts.length != 2) {
                 throw new IllegalArgumentException("Ungültiger Eintrag: " + raw);
             }

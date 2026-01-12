@@ -1,5 +1,6 @@
 package tools.vlab.kberry.server.statistics;
 
+import io.vertx.core.Vertx;
 import lombok.Data;
 
 @Data
@@ -10,12 +11,12 @@ public class Statistics {
     private final VOCStatistics voc;
     private final HumidityStatistics humidity;
 
-    public Statistics() throws java.io.IOException {
-        electricity = new ElectricityStatistics();
-        present = new PresentStatistics();
-        temperatur = new TemperaturStatistics();
-        voc = new VOCStatistics();
-        humidity = new HumidityStatistics();
+    public Statistics(Vertx vertx) {
+        electricity = new ElectricityStatistics(vertx);
+        present = new PresentStatistics(vertx);
+        temperatur = new TemperaturStatistics(vertx);
+        voc = new VOCStatistics(vertx);
+        humidity = new HumidityStatistics(vertx);
     }
 
 }

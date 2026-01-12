@@ -4,34 +4,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.actor.Light;
-import tools.vlab.kberry.core.devices.actor.OnOffDevice;
-import tools.vlab.kberry.core.devices.actor.OnOffStatus;
 import tools.vlab.kberry.core.devices.sensor.LuxSensor;
 import tools.vlab.kberry.core.devices.sensor.LuxStatus;
 import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
 import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
 
-import java.util.Vector;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus {
 
-public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus, OnOffStatus {
-
+    private final static long IGNORE_S = 3;
     private static final Logger Log = LoggerFactory.getLogger(AutoLightOnLogic.class);
-
     private final float minLux;
 
-    private AutoLightOnLogic(float minLux, Vector<PositionPath> paths) {
-        super(paths);
+    private AutoLightOnLogic(float minLux, PositionPath path) {
+        super(path);
         this.minLux = minLux;
     }
 
-    public static AutoLightOnLogic at(float minLux, PositionPath... positionPath) {
-        return new AutoLightOnLogic(minLux, new Vector<>(List.of(positionPath)));
+    public static AutoLightOnLogic at(float minLux, PositionPath positionPath) {
+        return new AutoLightOnLogic(minLux, positionPath);
     }
 
-    public static AutoLightOnLogic at(PositionPath... positionPath) {
-        return new AutoLightOnLogic(0, new Vector<>(List.of(positionPath)));
+    public static AutoLightOnLogic at(PositionPath positionPath) {
+        return new AutoLightOnLogic(0, positionPath);
     }
 
     @Override
@@ -46,40 +40,52 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
 
     @Override
     public void presenceChanged(PresenceSensor sensor, boolean available) {
+        if (!isSameRoom(sensor)) {
+            Log.info("AUTO LIGHT: Not same room {}",sensor.getPositionPath());
+            return;
+        }
+
         if (available) {
-            switchOnLightByLux(sensor.getPositionPath());
+            Log.info("AUTO LIGHT Presence {}", sensor.getPositionPath());
+            switchOnLightByLux();
+        } else {
+            Log.info("AUTO LIGHT Presence not available");
         }
     }
 
     @Override
     public void luxChanged(LuxSensor sensor, float lux) {
+        if (!isSameRoom(sensor)) return;
+
         if (minLux > 0) {
             var presence = this.getKnxDevices().getKNXDevice(PresenceSensor.class, sensor.getPositionPath());
             if (presence.isPresent() && presence.get().isPresent()) {
-                switchOnLightByLux(sensor.getPositionPath());
+                switchOnLightByLux();
             }
         }
     }
 
     // Problem only any light can be switch on, so if the room has many lights and you need specific light to switch on
-    private void switchOnLightByLux(PositionPath positionPath) {
+    private void switchOnLightByLux() {
         try {
-            if (contains(positionPath)) {
-                Log.info("Switching on light room {}", positionPath.getRoom());
-                var light = this.getKnxDevices().getKNXDeviceByRoom(Light.class, positionPath);
-                var luxSensor = this.getKnxDevices().getKNXDeviceByRoom(LuxSensor.class, positionPath);
-                if (minLux > 0 && light.isPresent() && luxSensor.isPresent() && luxSensor.get().getCurrentLux() < minLux) {
-                    light.get().on();
-                } else light.ifPresent(Light::on);
+            Log.info("Switching on light room {}", getPositionPath().getRoom());
+            var light = this.getKnxDevices().getKNXDeviceByRoom(Light.class, this.getPositionPath());
+            if (light.isPresent()) {
+                if (light.get().getLastPresentSecond() > IGNORE_S) {
+                    var luxSensor = this.getKnxDevices().getKNXDeviceByRoom(LuxSensor.class, getPositionPath());
+
+                    luxSensor.ifPresentOrElse(
+                            sensor -> Log.info("LUX STATUS: S:{} C:{}", sensor.getSmoothedLux(), sensor.getSmoothedLux()),
+                            () -> Log.info("Kein LUX Sensor")
+                    );
+
+                    if (minLux <= 0 || luxSensor.isPresent() && luxSensor.get().getCurrentLux() <= 0 || luxSensor.isEmpty() || luxSensor.get().getSmoothedLux() <= minLux) {
+                        light.ifPresent(Light::on);
+                    }
+                }
             }
         } catch (Exception e) {
-            Log.error("Switching on light Failed for path {}", positionPath.getPath(), e);
+            Log.error("Switching on light Failed for path {}", getPositionPath().getPath(), e);
         }
-
-    }
-
-    @Override
-    public void onOffStatusChanged(OnOffDevice onOffDevice, boolean isOn) {
-
     }
 }

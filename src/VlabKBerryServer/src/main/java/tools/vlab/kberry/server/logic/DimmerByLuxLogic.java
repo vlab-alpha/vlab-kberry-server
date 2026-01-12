@@ -7,11 +7,7 @@ import tools.vlab.kberry.core.devices.actor.OnOffStatus;
 import tools.vlab.kberry.core.devices.sensor.LuxSensor;
 import tools.vlab.kberry.core.devices.sensor.LuxStatus;
 
-import java.util.List;
-import java.util.Vector;
-
-public class DimmerByLuxLogic extends Logic
-        implements OnOffStatus, LuxStatus {
+public class DimmerByLuxLogic extends Logic implements OnOffStatus, LuxStatus {
 
     private final float targetLux;
     private final double kp;
@@ -20,14 +16,14 @@ public class DimmerByLuxLogic extends Logic
     private final int deadbandPercent;
 
     private DimmerByLuxLogic(
-            Vector<PositionPath> paths,
+            PositionPath path,
             TargetLux targetLux,
             double kp,
             int minDimPercent,
             int maxStepPercent,
             int deadbandPercent
     ) {
-        super(paths);
+        super(path);
         this.targetLux = targetLux.getTargetLux();
         this.kp = kp;
         this.minDimPercent = minDimPercent;
@@ -43,10 +39,10 @@ public class DimmerByLuxLogic extends Logic
      */
     public static DimmerByLuxLogic at(
             TargetLux targetLux,
-            PositionPath... paths
+            PositionPath dimmerPath
     ) {
         return new DimmerByLuxLogic(
-                new Vector<>(List.of(paths)),
+                dimmerPath,
                 targetLux,
                 0.12,   // stabiler Startwert
                 5,      // min 5 %
@@ -70,10 +66,10 @@ public class DimmerByLuxLogic extends Logic
      */
     @Override
     public void onOffStatusChanged(OnOffDevice device, boolean isOn) {
-        if (!isOn || !contains(device.getPositionPath())) {
+        if (!isOn || !isSameRoom(device)) {
             return;
         }
-        regulate(device.getPositionPath());
+        regulate();
     }
 
     /**
@@ -81,19 +77,19 @@ public class DimmerByLuxLogic extends Logic
      */
     @Override
     public void luxChanged(LuxSensor sensor, float lux) {
-        if (!contains(sensor.getPositionPath())) {
+        if (!isSameRoom(sensor)) {
             return;
         }
-        regulate(sensor.getPositionPath());
+        regulate();
     }
 
     /**
      * Zentrale Regel-Funktion
      */
-    private void regulate(PositionPath path) {
+    private void regulate() {
 
-        var dimmerOpt = getKnxDevices().getKNXDevice(Dimmer.class, path);
-        var luxOpt = getKnxDevices().getKNXDeviceByRoom(LuxSensor.class, path);
+        var dimmerOpt = getKnxDevices().getKNXDevice(Dimmer.class, this.getPositionPath());
+        var luxOpt = getKnxDevices().getKNXDeviceByRoom(LuxSensor.class, this.getPositionPath());
 
         if (dimmerOpt.isEmpty() || luxOpt.isEmpty()) {
             return;
