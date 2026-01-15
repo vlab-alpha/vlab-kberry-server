@@ -41,12 +41,12 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
     @Override
     public void presenceChanged(PresenceSensor sensor, boolean available) {
         if (!isSameRoom(sensor)) {
-            Log.info("AUTO LIGHT: Not same room {}",sensor.getPositionPath());
+            Log.debug("AUTO LIGHT: Not same room {}",sensor.getPositionPath());
             return;
         }
 
         if (available) {
-            Log.info("AUTO LIGHT Presence {}", sensor.getPositionPath());
+            Log.debug("AUTO LIGHT Presence {}", sensor.getPositionPath());
             switchOnLightByLux();
         } else {
             Log.info("AUTO LIGHT Presence not available");
@@ -68,15 +68,15 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
     // Problem only any light can be switch on, so if the room has many lights and you need specific light to switch on
     private void switchOnLightByLux() {
         try {
-            Log.info("Switching on light room {}", getPositionPath().getRoom());
+            Log.debug("Switching on light room {}", getPositionPath().getRoom());
             var light = this.getKnxDevices().getKNXDeviceByRoom(Light.class, this.getPositionPath());
             if (light.isPresent()) {
                 if (light.get().getLastPresentSecond() > IGNORE_S) {
                     var luxSensor = this.getKnxDevices().getKNXDeviceByRoom(LuxSensor.class, getPositionPath());
 
                     luxSensor.ifPresentOrElse(
-                            sensor -> Log.info("LUX STATUS: S:{} C:{}", sensor.getSmoothedLux(), sensor.getSmoothedLux()),
-                            () -> Log.info("Kein LUX Sensor")
+                            sensor -> Log.debug("LUX STATUS: S:{} C:{}", sensor.getSmoothedLux(), sensor.getSmoothedLux()),
+                            () -> Log.debug("Kein LUX Sensor")
                     );
 
                     if (minLux <= 0 || luxSensor.isPresent() && luxSensor.get().getCurrentLux() <= 0 || luxSensor.isEmpty() || luxSensor.get().getSmoothedLux() <= minLux) {

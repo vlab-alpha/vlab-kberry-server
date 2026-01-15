@@ -33,15 +33,15 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
     @Override
     public void onOffStatusChanged(OnOffDevice onOffDevice, boolean isOn) {
         if (!isSamePosition(onOffDevice)) {
-            Log.info("Ignore {}",onOffDevice.getPositionPath());
+            Log.debug("Ignore {}",onOffDevice.getPositionPath());
             return;
         }
 
         if (isOn) {
-            Log.info("Init Timer  {}",onOffDevice.getPositionPath());
+            Log.debug("Init Timer  {}",onOffDevice.getPositionPath());
             presence.put(onOffDevice.getPositionPath().getRoom(), OffTimer.init(onOffDevice.getPositionPath(), followupTimeS));
         } else {
-            Log.info("Remove Timer for {}",onOffDevice.getPositionPath());
+            Log.debug("Remove Timer for {}",onOffDevice.getPositionPath());
             presence.remove(onOffDevice.getPositionPath().getRoom());
         }
     }
@@ -52,11 +52,11 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
 
         Log.info("SWITCH OFF Presence {}",sensor.getPositionPath());
         if (presence.containsKey(sensor.getPositionPath().getRoom())) {
-            Log.info("Presence change from room: {} {}", sensor.getPositionPath().getRoom(), available);
+            Log.debug("Presence change from room: {} {}", sensor.getPositionPath().getRoom(), available);
             if (available) {
                 presence.get(sensor.getPositionPath().getRoom()).reset();
             } else {
-                Log.info("Timer start for room {}", sensor.getPositionPath().getRoom());
+                Log.debug("Timer start for room {}", sensor.getPositionPath().getRoom());
                 presence.get(sensor.getPositionPath().getRoom()).start();
             }
         }
@@ -68,7 +68,7 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
                 var timer = presence.get(room);
                 if (!timer.within()) {
                     try {
-                        Log.info("Switch off light for room: {}", room);
+                        Log.debug("Switch off light for room: {}", room);
                         this.getKnxDevices().getKNXDeviceByRoom(Light.class, timer.getPositionPath()).ifPresent(Light::off);
                     } catch (Exception e) {
                         Log.error("Check Periodic Presence failed for path {}!", timer.getPositionPath().getPath(), e);

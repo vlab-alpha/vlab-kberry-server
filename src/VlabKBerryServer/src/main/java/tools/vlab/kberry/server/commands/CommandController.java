@@ -85,7 +85,13 @@ public class CommandController extends AbstractVerticle {
     private void subscribeCommands() {
         Map<String, Integer> subscription = this.commandList.stream()
                 .collect(Collectors.toMap(
-                        command -> "request/" + command.topic().getTopic(),
+                        command -> {
+                            if (command instanceof Scene scene) {
+                                return "request/" + scene.getTopic();
+                            } else {
+                                return "request/" + command.getTopic();
+                            }
+                        },
                         command -> MqttQoS.EXACTLY_ONCE.value()
                 ));
         this.client.subscribe(subscription)
@@ -103,7 +109,7 @@ public class CommandController extends AbstractVerticle {
 
             String topicCommand = topic.substring("request/".length());
             var payload = message.payload().toString();
-            Log.info("Received {} message: {}", topic, payload);
+            Log.debug("Received {} message: {}", topic, payload);
             JsonObject json = payload != null && !payload.isEmpty() ? new JsonObject(payload) : new JsonObject();
             boolean found = false;
             for (Command command : commandList) {
