@@ -55,11 +55,16 @@ public class CostWattVerticle extends AbstractVerticle implements CostWattServic
             if (localPriceFile != null) {
                 loadLocalPrice()
                         .compose(none -> updateMarketPrice())
-                        .compose(none -> {
-                            vertx.setPeriodic(refreshInterval.toMillis(), id -> updateMarketPrice());
-                            return Future.succeededFuture();
-                        }).onSuccess(result -> startFuture.complete())
-                        .onFailure(startFuture::fail);
+                        .onSuccess(firstMarketPrice -> {
+                            marketPricePerKWh = firstMarketPrice;
+                            vertx.setPeriodic(refreshInterval.toMillis(), id -> updateMarketPrice().onSuccess(mp -> marketPricePerKWh = mp));
+                            startFuture.complete();
+                        })
+                        .onFailure(failed -> {
+                            marketPricePerKWh = 13.0;
+                            Log.error("Update Energy price failed! Use default price {}", marketPricePerKWh);
+                            startFuture.complete();
+                        });
             } else {
                 providerName = "";
                 localPricePerKWh = 1.2;
@@ -92,7 +97,7 @@ public class CostWattVerticle extends AbstractVerticle implements CostWattServic
         });
     }
 
-    private Future<Void> updateMarketPrice() {
+    private Future<Double> updateMarketPrice() {
         WebClient client = WebClient.create(getVertx());
         return client
                 .getAbs("https://api.corrently.io/v2.0/marketdata")
@@ -101,16 +106,19 @@ public class CostWattVerticle extends AbstractVerticle implements CostWattServic
                     try {
                         JsonObject json = body.bodyAsJsonObject();
                         if (json == null) {
-                            Log.error("JSON response body is null {} use default 13.0c", body);
-                            marketPricePerKWh = 13.0;
-                            return Future.succeededFuture();
+                            return Future.failedFuture("JSON response body is null");
                         }
                         double priceCt = json.getDouble("current");
                         System.out.println("Aktualisierter Marktpreis: " + marketPricePerKWh + " €/kWh");
-                        marketPricePerKWh = priceCt / 100.0;
-                        return Future.succeededFuture();
+                        return Future.succeededFuture(priceCt / 100.0);
                     } catch (Exception e) {
-                        return Future.failedFuture(e);
+                        try {
+                            var s = body.bodyAsString();
+                            return Future.failedFuture(s);
+                        } catch (Exception ex) {
+                            return Future.failedFuture(e);
+                        }
+
                     }
                 });
     }

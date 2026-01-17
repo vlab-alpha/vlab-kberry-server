@@ -5,6 +5,7 @@ import io.vertx.core.json.JsonObject;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.KNXDevices;
 import tools.vlab.kberry.server.logic.Logics;
 import tools.vlab.kberry.server.scheduler.Schedule;
@@ -43,12 +44,12 @@ public abstract class Command {
         return "command/" + topic().getTopic();
     }
 
-    public void start(String id, Trigger trigger, Runnable task) {
-        schedule.start(id, trigger, task);
+    public void register(PositionPath positionPath, String taskId, Trigger trigger, Runnable task) {
+        schedule.registerSchedule(positionPath, taskId, trigger, task);
     }
 
-    public void stop(String id) {
-        schedule.stop(id);
+    public void unregister(PositionPath positionPath, String taskId) {
+        schedule.unregister(positionPath, taskId);
     }
 
     public abstract void init();

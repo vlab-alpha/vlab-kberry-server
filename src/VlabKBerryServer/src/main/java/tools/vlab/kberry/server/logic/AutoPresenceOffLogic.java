@@ -50,7 +50,7 @@ public class AutoPresenceOffLogic extends Logic implements OnOffStatus, Presence
     public void presenceChanged(PresenceSensor sensor, boolean available) {
         if (!isSameRoom(sensor)) return;
 
-        Log.info("SWITCH OFF Presence {}",sensor.getPositionPath());
+        Log.debug("SWITCH OFF Presence {}",sensor.getPositionPath());
         if (presence.containsKey(sensor.getPositionPath().getRoom())) {
             Log.debug("Presence change from room: {} {}", sensor.getPositionPath().getRoom(), available);
             if (available) {

@@ -49,7 +49,7 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
             Log.debug("AUTO LIGHT Presence {}", sensor.getPositionPath());
             switchOnLightByLux();
         } else {
-            Log.info("AUTO LIGHT Presence not available");
+            Log.debug("AUTO LIGHT Presence not available");
         }
     }
 

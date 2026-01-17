@@ -1,8 +1,18 @@
 package tools.vlab.kberry.server.scheduler.trigger;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 public record DayOfWeek(java.time.DayOfWeek day, LocalDateTime time) implements Trigger {
+
+    @JsonCreator
+    public DayOfWeek(@JsonProperty("time") java.time.DayOfWeek day, LocalDateTime time) {
+        this.day = day;
+        this.time = time;
+    }
 
     @Override
     public boolean matches(LocalDateTime now) {

@@ -1,88 +1,62 @@
 package tools.vlab.kberry.server.scheduler;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.vertx.core.AbstractVerticle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.vlab.kberry.core.PositionPath;
+import tools.vlab.kberry.core.devices.KNXDevices;
 import tools.vlab.kberry.server.scheduler.trigger.Trigger;
 
-import java.io.File;
-import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
-public class ScheduleEngine implements Schedule {
+public class ScheduleEngine extends AbstractVerticle implements Schedule {
 
     private static final Logger Log = LoggerFactory.getLogger(ScheduleEngine.class);
+    private final Map<String, TriggerTask> scheduleMap = new ConcurrentHashMap<>();
+    private Long timerId;
 
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-    private final Map<String, TriggerTask> schedules = new ConcurrentHashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final File persistenceFile;
-
-    public ScheduleEngine(File persistenceFile) {
-        this.persistenceFile = persistenceFile;
-        loadPersistedSchedules();
-    }
-
-    /**
-     * Start a task with a trigger and persist it.
-     */
-    public void start(String id, Trigger trigger, Runnable task) {
-        TriggerTask triggerTask = new TriggerTask(trigger, task);
-        schedules.put(id, triggerTask);
-        persistSchedules();
-        executor.scheduleAtFixedRate(() -> {
-            if (trigger.matches(java.time.LocalDateTime.now())) {
-                task.run();
-            }
-        }, 0, 1, TimeUnit.SECONDS);
+    public ScheduleEngine() {
     }
 
     @Override
-    public void stop(String id) {
-        schedules.remove(id);
-        persistSchedules();
+    public void start() {
+        timerId = vertx.setPeriodic(1000, fireId -> scheduleMap.values().forEach(triggerTasks -> {
+            if (triggerTasks.trigger().matches(LocalDateTime.now())) {
+                try {
+                    triggerTasks.task().run();
+                } catch (Exception e) {
+                    Log.error("Error executing task {}", triggerTasks.id(), e);
+                }
+
+            }
+        }));
     }
 
-    /**
-     * Persist all schedules to JSON
-     */
-    private void persistSchedules() {
-        try {
-            objectMapper.writerWithDefaultPrettyPrinter()
-                    .writeValue(persistenceFile, schedules);
-        } catch (IOException e) {
-            Log.error("Store schedule failed!", e);
-        }
+    public void registerSchedule(PositionPath path, String taskId, Trigger trigger, Runnable logic) {
+        var id = id(path, taskId);
+        scheduleMap.put(id, new TriggerTask(id, trigger, logic));
     }
 
-    /**
-     * Load persisted schedules
-     */
-    private void loadPersistedSchedules() {
-        if (!persistenceFile.exists()) return;
+    public void registerSchedule(KNXDevices knxDevices, Scheduler scheduler) {
+        scheduleMap.put(scheduler.getId(), new TriggerTask(scheduler.getId(), scheduler.getTrigger(), () -> scheduler.executed(knxDevices)));
+    }
 
-        try {
-            Map<String, TriggerTask> persisted = objectMapper.readValue(
-                    persistenceFile,
-                    new TypeReference<>() {}
-            );
+    @Override
+    public void unregister(PositionPath path, String id) {
+        scheduleMap.remove(id(path, id));
+    }
 
-            persisted.forEach((id, task) -> {
-                schedules.put(id, task);
-                executor.scheduleAtFixedRate(() -> {
-                    if (task.trigger().matches(java.time.LocalDateTime.now())) {
-                        task.runnable().run();
-                    }
-                }, 0, 1, TimeUnit.SECONDS);
-            });
+    private String id(PositionPath path, String taskId) {
+        return String.format("%s.%s", path.getId(), taskId);
+    }
 
-        } catch (IOException e) {
-            Log.error("Load schedule failed!", e);
+    @Override
+    public void stop() {
+        if (timerId != null) {
+            this.vertx.cancelTimer(timerId);
         }
+        Log.info("ScheduleEngine stopped.");
     }
 }

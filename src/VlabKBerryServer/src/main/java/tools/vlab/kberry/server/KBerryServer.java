@@ -4,6 +4,7 @@ import io.vertx.core.Vertx;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.baos.SerialBAOSConnection;
 import tools.vlab.kberry.core.baos.TimeoutException;
 import tools.vlab.kberry.core.devices.KNXDevice;
@@ -14,12 +15,12 @@ import tools.vlab.kberry.server.commands.Scene;
 import tools.vlab.kberry.server.logic.Logic;
 import tools.vlab.kberry.server.logic.Logics;
 import tools.vlab.kberry.server.scheduler.ScheduleEngine;
+import tools.vlab.kberry.server.scheduler.Scheduler;
 import tools.vlab.kberry.server.scheduler.trigger.Trigger;
 import tools.vlab.kberry.server.serviceProvider.*;
 import tools.vlab.kberry.server.statistics.Statistics;
 import tools.vlab.kberry.server.statistics.StatisticsScheduler;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -74,7 +75,7 @@ public class KBerryServer {
         private final Set<Logic> logics = new HashSet<>();
         private final String mqttHost;
         private final int mqttPort;
-        private final ScheduleEngine scheduler = new ScheduleEngine(new File("schedule"));
+        private final ScheduleEngine scheduler = new ScheduleEngine();
         private GoogleCalendarService googleCalendarServiceProvider;
         private IcloudCalendarService icloudCalenderService;
 
@@ -106,8 +107,8 @@ public class KBerryServer {
             return this;
         }
 
-        public Builder scheduler(String id, Trigger trigger, Runnable runnable) {
-            this.scheduler.start(id, trigger, runnable);
+        public Builder scheduler(Scheduler scheduler) {
+            this.scheduler.registerSchedule(devices, scheduler);
             return this;
         }
 
@@ -166,6 +167,7 @@ public class KBerryServer {
                     .compose(ignore -> vertx.deployVerticle(weatherServiceProvider))
                     .compose(ignore -> vertx.deployVerticle(costWattVerticle))
                     .compose(ignore -> vertx.deployVerticle(controller))
+                    .compose(ignore -> vertx.deployVerticle(scheduler))
                     .map(ignore -> {
                         Log.info("KBerryServer Build Done ...");
                         return new KBerryServer(connection, devices, controller, logicEngine, statistics);
