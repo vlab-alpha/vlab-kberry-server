@@ -29,8 +29,7 @@ public class StatisticsScheduler extends AbstractVerticle {
 
     @Override
     public void start() {
-
-        timerId = this.getVertx().setPeriodic(1000 * 60, (id) -> {
+        timerId = this.getVertx().setPeriodic(60 * 1000, (id) -> {
             devices.getKNXDevices(TemperatureSensor.class).forEach(device -> statistics.getTemperatur().append(new TemperaturStatistics.TemperatureEntry(device.getPositionPath().getPath(), device.getCurrentTemp())));
             devices.getKNXDevices(VOCSensor.class).forEach(device -> statistics.getVoc().append(new VOCStatistics.VOCEntry(device.getPositionPath().getPath(), device.getCurrentPPM())));
             devices.getKNXDevices(PresenceSensor.class).forEach(device -> statistics.getPresent().append(new PresentStatistics.PresenceEntry(device.getPositionPath().getPath(), device.isPresent())));
