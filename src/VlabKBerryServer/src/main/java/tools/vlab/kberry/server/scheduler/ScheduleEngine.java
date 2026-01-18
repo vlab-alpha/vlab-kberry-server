@@ -22,14 +22,15 @@ public class ScheduleEngine extends AbstractVerticle implements Schedule {
 
     @Override
     public void start() {
+        Log.info("Scheduler Start ...");
         timerId = vertx.setPeriodic(1000, fireId -> scheduleMap.values().forEach(triggerTasks -> {
             if (triggerTasks.trigger().matches(LocalDateTime.now())) {
                 try {
+                    Log.info("Execute Task T:{} P:{}", triggerTasks.trigger(),triggerTasks.id());
                     triggerTasks.task().run();
                 } catch (Exception e) {
                     Log.error("Error executing task {}", triggerTasks.id(), e);
                 }
-
             }
         }));
     }

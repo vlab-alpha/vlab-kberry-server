@@ -2,6 +2,7 @@ package tools.vlab.kberry.server.scheduler.trigger;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import tools.vlab.kberry.server.scheduler.LocalTimeUtil;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -15,7 +16,7 @@ public record Daily(LocalTime time) implements Trigger  {
 
     @Override
     public boolean matches(LocalDateTime now) {
-        return now.toLocalTime().equals(time);
+        return LocalTimeUtil.isSame(now, time);
     }
 
     public static Daily trigger(LocalTime time) {

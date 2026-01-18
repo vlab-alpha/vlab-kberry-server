@@ -6,7 +6,7 @@ public record EverySecond() implements Trigger {
 
     @Override
     public boolean matches(LocalDateTime now) {
-        return now.getNano() == 100;
+        return true;
     }
 
     public static EverySecond trigger() {
