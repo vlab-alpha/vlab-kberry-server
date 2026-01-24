@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.KNXDevices;
-import tools.vlab.kberry.server.logic.Logics;
+import tools.vlab.kberry.server.logic.LogicEngine;
 import tools.vlab.kberry.server.scheduler.Schedule;
 import tools.vlab.kberry.server.scheduler.trigger.Trigger;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
@@ -21,7 +21,7 @@ import java.util.Optional;
 public abstract class Command {
 
     private KNXDevices knxDevices;
-    private Logics logics;
+    private LogicEngine logicEngine;
     private Statistics statistics;
     private ServiceProviders serviceProviders;
     private Schedule schedule;

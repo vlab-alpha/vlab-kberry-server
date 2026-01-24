@@ -11,12 +11,13 @@ import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
 
 public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus {
 
+    public final static String LOGIC_NAME = "autoLightOn";
     private final static long IGNORE_S = 3;
     private static final Logger Log = LoggerFactory.getLogger(AutoLightOnLogic.class);
     private final float minLux;
 
     private AutoLightOnLogic(float minLux, PositionPath path) {
-        super(path);
+        super(LOGIC_NAME, path);
         this.minLux = minLux;
     }
 
@@ -40,8 +41,8 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
 
     @Override
     public void presenceChanged(PresenceSensor sensor, boolean available) {
-        if (!isSameRoom(sensor)) {
-            Log.debug("AUTO LIGHT: Not same room {}",sensor.getPositionPath());
+        if (isNotSameRoom(sensor)) {
+            Log.debug("AUTO LIGHT: Not same room {}", sensor.getPositionPath());
             return;
         }
 
@@ -55,7 +56,7 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
 
     @Override
     public void luxChanged(LuxSensor sensor, float lux) {
-        if (!isSameRoom(sensor)) return;
+        if (isNotSameRoom(sensor)) return;
 
         if (minLux > 0) {
             var presence = this.getKnxDevices().getKNXDevice(PresenceSensor.class, sensor.getPositionPath());

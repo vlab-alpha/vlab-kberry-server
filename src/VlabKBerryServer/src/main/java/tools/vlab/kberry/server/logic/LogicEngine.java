@@ -3,6 +3,7 @@ package tools.vlab.kberry.server.logic;
 import io.vertx.core.Vertx;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.KNXDevices;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
 import tools.vlab.kberry.server.statistics.Statistics;
@@ -12,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-public class Logics {
+public class LogicEngine {
 
     private final Vertx vertx;
     private final KNXDevices knxDevices;
@@ -23,21 +24,25 @@ public class Logics {
     private final Statistics statistics;
 
 
-    public Logics(Vertx vertx, KNXDevices knxDevices, ServiceProviders services, Statistics statistics) {
+    public LogicEngine(Vertx vertx, KNXDevices knxDevices, ServiceProviders services, Statistics statistics) {
         this.vertx = vertx;
         this.knxDevices = knxDevices;
         this.services = services;
         this.statistics = statistics;
     }
 
-    public String register(Logic logic) {
+    public void register(Logic logic) {
         logic.setKnxDevices(knxDevices);
         logic.setServiceProviders(services);
         logic.setStatistics(statistics);
         logic.start(this.vertx);
         knxDevices.getAllDevices().forEach(device -> device.addListener(logic));
-        logicList.add(logic);
-        return logic.getId();
+        if (logicList.stream().noneMatch(l -> l.hasId(logic.getPositionPath(), logic.getName()))) {
+            logicList.add(logic);
+            log.info("Add Logic {} for room {}!", logic.getName(), logic.getPositionPath().getRoom());
+        } else {
+            log.error("Ignore Logic {} for room {}!", logic.getName(), logic.getPositionPath().getRoom());
+        }
     }
 
     public void unregister(Logic logic) {
@@ -45,14 +50,14 @@ public class Logics {
         logicList.remove(logic);
     }
 
-    public void unregister(String logicId) {
-        this.getLogic(logicId)
+    public void unregister(PositionPath path, String logicName) {
+        this.getLogic(path, logicName)
                 .ifPresent(logicList::remove);
     }
 
-    public Optional<Logic> getLogic(String logicId) {
+    public Optional<Logic> getLogic(PositionPath path, String logicName) {
         return this.logicList.stream()
-                .filter(l -> l.getId().equalsIgnoreCase(logicId))
+                .filter(l -> l.hasId(path, logicName))
                 .findFirst();
     }
 
@@ -60,5 +65,12 @@ public class Logics {
         this.logicList.forEach(Logic::stop);
     }
 
+
+    public List<String> getLogicNames(PositionPath path) {
+        return this.logicList.stream()
+                .filter(logic -> logic.getPositionPath().isSame(path))
+                .map(Logic::getName)
+                .toList();
+    }
 
 }

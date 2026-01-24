@@ -13,7 +13,7 @@ import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.vlab.kberry.core.devices.KNXDevices;
-import tools.vlab.kberry.server.logic.Logics;
+import tools.vlab.kberry.server.logic.LogicEngine;
 import tools.vlab.kberry.server.scheduler.Schedule;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
 import tools.vlab.kberry.server.statistics.Statistics;
@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class CommandController extends AbstractVerticle {
 
@@ -33,7 +32,7 @@ public class CommandController extends AbstractVerticle {
     private final Statistics statistics;
     private final ServiceProviders serviceProviders;
     private final Schedule schedule;
-    private final Logics logics;
+    private final LogicEngine logics;
     @Getter
     private final List<Command> commandList = new ArrayList<>();
     @Setter
@@ -41,7 +40,7 @@ public class CommandController extends AbstractVerticle {
     private MqttClient client;
     private final int mqttPort;
 
-    public CommandController(String mqttHost, int mqttPort, KNXDevices knxDevices, Statistics statistics, ServiceProviders serviceProviders, Schedule schedule, Logics logics) {
+    public CommandController(String mqttHost, int mqttPort, KNXDevices knxDevices, Statistics statistics, ServiceProviders serviceProviders, Schedule schedule, LogicEngine logics) {
         this.mqttHost = mqttHost;
         this.knxDevices = knxDevices;
         this.statistics = statistics;
@@ -55,7 +54,7 @@ public class CommandController extends AbstractVerticle {
         command.setStatistics(statistics);
         command.setServiceProviders(serviceProviders);
         command.setSchedule(schedule);
-        command.setLogics(logics);
+        command.setLogicEngine(logics);
         command.setKnxDevices(knxDevices);
         command.init();
         this.commandList.add(command);

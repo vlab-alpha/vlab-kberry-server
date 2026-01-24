@@ -11,12 +11,14 @@ import java.util.concurrent.*;
  */
 public class AutoUsageOffLogic extends Logic implements OnOffStatus {
 
+    public final static String LOGIC_NAME = "AutoUsageOff";
+
     private final int maxUsageMinutes;
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
     private final ConcurrentHashMap<OnOffDevice, ScheduledFuture<?>> activeTasks = new ConcurrentHashMap<>();
 
     private AutoUsageOffLogic(PositionPath path, int maxUsageMinutes) {
-        super(path);
+        super(LOGIC_NAME, path);
         this.maxUsageMinutes = maxUsageMinutes;
     }
 
@@ -36,7 +38,7 @@ public class AutoUsageOffLogic extends Logic implements OnOffStatus {
 
     @Override
     public void onOffStatusChanged(OnOffDevice device, boolean isOn) {
-        if (!isSamePosition(device)) {
+        if (isNotSamePosition(device)) {
             return;
         }
 

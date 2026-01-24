@@ -4,7 +4,6 @@ import io.vertx.core.Vertx;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.baos.SerialBAOSConnection;
 import tools.vlab.kberry.core.baos.TimeoutException;
 import tools.vlab.kberry.core.devices.KNXDevice;
@@ -13,10 +12,9 @@ import tools.vlab.kberry.server.commands.Command;
 import tools.vlab.kberry.server.commands.CommandController;
 import tools.vlab.kberry.server.commands.Scene;
 import tools.vlab.kberry.server.logic.Logic;
-import tools.vlab.kberry.server.logic.Logics;
+import tools.vlab.kberry.server.logic.LogicEngine;
 import tools.vlab.kberry.server.scheduler.ScheduleEngine;
 import tools.vlab.kberry.server.scheduler.Scheduler;
-import tools.vlab.kberry.server.scheduler.trigger.Trigger;
 import tools.vlab.kberry.server.serviceProvider.*;
 import tools.vlab.kberry.server.statistics.Statistics;
 import tools.vlab.kberry.server.statistics.StatisticsScheduler;
@@ -38,11 +36,11 @@ public class KBerryServer {
     @Getter
     private final CommandController commandController;
     @Getter
-    private final Logics logicEngine;
+    private final LogicEngine logicEngine;
     @Getter
     private final Statistics statistics;
 
-    private KBerryServer(SerialBAOSConnection connection, KNXDevices devices, CommandController commandController, Logics logicEngine, Statistics statistics) {
+    private KBerryServer(SerialBAOSConnection connection, KNXDevices devices, CommandController commandController, LogicEngine logicEngine, Statistics statistics) {
         this.connection = connection;
         this.devices = devices;
         this.commandController = commandController;
@@ -154,7 +152,7 @@ public class KBerryServer {
 
             Log.info("KBerryServer Logics Init ...");
             // Logic
-            var logicEngine = new Logics(vertx, devices, serviceProvider, statistics);
+            var logicEngine = new LogicEngine(vertx, devices, serviceProvider, statistics);
             logics.forEach(logicEngine::register);
 
             // Commands

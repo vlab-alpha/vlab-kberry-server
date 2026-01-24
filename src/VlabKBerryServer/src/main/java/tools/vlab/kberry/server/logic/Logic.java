@@ -11,8 +11,6 @@ import tools.vlab.kberry.core.devices.StatusListener;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
 import tools.vlab.kberry.server.statistics.Statistics;
 
-import java.util.UUID;
-
 @Getter
 public abstract class Logic implements StatusListener {
 
@@ -25,19 +23,20 @@ public abstract class Logic implements StatusListener {
     @Setter
     private ServiceProviders serviceProviders;
     private Vertx vertx;
-    private final String id = UUID.randomUUID().toString();
+    private final String name;
 
 
-    protected Logic(PositionPath path) {
+    protected Logic(String name, PositionPath path) {
+        this.name = name;
         this.path = path;
     }
 
-    public boolean isSamePosition(KNXDevice device) {
-        return path.isSame(device.getPositionPath());
+    public boolean isNotSamePosition(KNXDevice device) {
+        return !path.isSame(device.getPositionPath());
     }
 
-    public boolean isSameRoom(KNXDevice device) {
-        return path.sameRoom(device.getPositionPath());
+    public boolean isNotSameRoom(KNXDevice device) {
+        return !path.sameRoom(device.getPositionPath());
     }
 
     public void start(Vertx vertx) {
@@ -52,6 +51,14 @@ public abstract class Logic implements StatusListener {
     public abstract void stop();
 
     public abstract void start();
+
+    public String getId() {
+        return String.join("@", name, path.getId());
+    }
+
+    public boolean hasId(PositionPath positionPath, String name) {
+        return positionPath.isSame(positionPath) && this.name.equalsIgnoreCase(name);
+    }
 
 
 }

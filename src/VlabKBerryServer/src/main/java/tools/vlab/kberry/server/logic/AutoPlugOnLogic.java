@@ -8,8 +8,10 @@ import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
 
 public class AutoPlugOnLogic extends Logic implements PresenceStatus {
 
+    public final static String LOGIC_NAME = "AutoPlugOn";
+
     private AutoPlugOnLogic(PositionPath path) {
-        super(path);
+        super(LOGIC_NAME, path);
     }
 
     public static AutoPlugOnLogic at(PositionPath positionPath) {
@@ -28,7 +30,7 @@ public class AutoPlugOnLogic extends Logic implements PresenceStatus {
 
     @Override
     public void presenceChanged(PresenceSensor sensor, boolean available) {
-        if (!isSameRoom(sensor)) return;
+        if (isNotSameRoom(sensor)) return;
         if (available) {
             this.getKnxDevices().getKNXDevice(Plug.class, sensor.getPositionPath()).ifPresent(OnOffDevice::on);
         }

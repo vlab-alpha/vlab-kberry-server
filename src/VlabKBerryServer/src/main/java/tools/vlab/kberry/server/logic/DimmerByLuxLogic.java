@@ -9,6 +9,8 @@ import tools.vlab.kberry.core.devices.sensor.LuxStatus;
 
 public class DimmerByLuxLogic extends Logic implements OnOffStatus, LuxStatus {
 
+    public final static String LOGIC_NAME = "AutoUsageOff";
+
     private final float targetLux;
     private final double kp;
     private final int minDimPercent;
@@ -23,7 +25,7 @@ public class DimmerByLuxLogic extends Logic implements OnOffStatus, LuxStatus {
             int maxStepPercent,
             int deadbandPercent
     ) {
-        super(path);
+        super(LOGIC_NAME, path);
         this.targetLux = targetLux.getTargetLux();
         this.kp = kp;
         this.minDimPercent = minDimPercent;
@@ -46,7 +48,7 @@ public class DimmerByLuxLogic extends Logic implements OnOffStatus, LuxStatus {
                 targetLux,
                 0.12,   // stabiler Startwert
                 5,      // min 5 %
-                8,      // max 8 % Stellschritt
+                8,      // max. 8 % Stellschritt
                 2       // 2 % Deadband
         );
     }
@@ -66,7 +68,7 @@ public class DimmerByLuxLogic extends Logic implements OnOffStatus, LuxStatus {
      */
     @Override
     public void onOffStatusChanged(OnOffDevice device, boolean isOn) {
-        if (!isOn || !isSameRoom(device)) {
+        if (!isOn || isNotSameRoom(device)) {
             return;
         }
         regulate();
@@ -77,7 +79,7 @@ public class DimmerByLuxLogic extends Logic implements OnOffStatus, LuxStatus {
      */
     @Override
     public void luxChanged(LuxSensor sensor, float lux) {
-        if (!isSameRoom(sensor)) {
+        if (isNotSameRoom(sensor)) {
             return;
         }
         regulate();

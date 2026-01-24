@@ -13,44 +13,45 @@ import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-public class AutoPresenceOffLogic extends Logic implements OnOffStatus, PresenceStatus {
+public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, PresenceStatus {
 
-    private static final Logger Log = LoggerFactory.getLogger(AutoPresenceOffLogic.class);
+    private static final Logger Log = LoggerFactory.getLogger(AutoPresenceLightOffLogic.class);
+    public final static String LOGIC_NAME = "AutoPresenceOff";
 
     private final int followupTimeS;
     private final ConcurrentHashMap<String, OffTimer> presence = new ConcurrentHashMap<>();
     private Long timerId = null;
 
-    private AutoPresenceOffLogic(int followupTimeS, PositionPath pathOfLight) {
-        super(pathOfLight);
+    private AutoPresenceLightOffLogic(int followupTimeS, PositionPath pathOfLight) {
+        super(LOGIC_NAME, pathOfLight);
         this.followupTimeS = followupTimeS;
     }
 
-    public static AutoPresenceOffLogic at(int followupTimeS, PositionPath pathOfLight) {
-        return new AutoPresenceOffLogic(followupTimeS, pathOfLight);
+    public static AutoPresenceLightOffLogic at(int followupTimeS, PositionPath pathOfLight) {
+        return new AutoPresenceLightOffLogic(followupTimeS, pathOfLight);
     }
 
     @Override
     public void onOffStatusChanged(OnOffDevice onOffDevice, boolean isOn) {
-        if (!isSamePosition(onOffDevice)) {
-            Log.debug("Ignore {}",onOffDevice.getPositionPath());
+        if (isNotSamePosition(onOffDevice)) {
+            Log.debug("Ignore {}", onOffDevice.getPositionPath());
             return;
         }
 
         if (isOn) {
-            Log.debug("Init Timer  {}",onOffDevice.getPositionPath());
+            Log.debug("Init Timer  {}", onOffDevice.getPositionPath());
             presence.put(onOffDevice.getPositionPath().getRoom(), OffTimer.init(onOffDevice.getPositionPath(), followupTimeS));
         } else {
-            Log.debug("Remove Timer for {}",onOffDevice.getPositionPath());
+            Log.debug("Remove Timer for {}", onOffDevice.getPositionPath());
             presence.remove(onOffDevice.getPositionPath().getRoom());
         }
     }
 
     @Override
     public void presenceChanged(PresenceSensor sensor, boolean available) {
-        if (!isSameRoom(sensor)) return;
+        if (isNotSameRoom(sensor)) return;
 
-        Log.debug("SWITCH OFF Presence {}",sensor.getPositionPath());
+        Log.debug("SWITCH OFF Presence {}", sensor.getPositionPath());
         if (presence.containsKey(sensor.getPositionPath().getRoom())) {
             Log.debug("Presence change from room: {} {}", sensor.getPositionPath().getRoom(), available);
             if (available) {
