@@ -8,9 +8,9 @@ import tools.vlab.kberry.core.devices.KNXDevices;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
 import tools.vlab.kberry.server.statistics.Statistics;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 public class LogicEngine {
@@ -20,7 +20,7 @@ public class LogicEngine {
     @Getter
     private final ServiceProviders services;
     @Getter
-    private final List<Logic> logicList = new ArrayList<>();
+    private final ConcurrentHashMap<String, Logic> logicMap = new ConcurrentHashMap<>();
     private final Statistics statistics;
 
 
@@ -36,38 +36,42 @@ public class LogicEngine {
         logic.setServiceProviders(services);
         logic.setStatistics(statistics);
         logic.start(this.vertx);
-        knxDevices.getAllDevices().forEach(device -> device.addListener(logic));
-        if (logicList.stream().noneMatch(l -> l.hasId(logic.getPositionPath(), logic.getName()))) {
-            logicList.add(logic);
-            log.info("Add Logic {} for room {}!", logic.getName(), logic.getPositionPath().getRoom());
+        if (logicMap.containsKey(logic.getId())) {
+            log.info("Update Logic {} for room {}!", logic.getName(), logic.getPositionPath().getRoom());
+            knxDevices.getAllDevices().forEach(device -> device.removeListener(logicMap.get(logic.getId())));
+            logicMap.get(logic.getId()).stop();
+            logicMap.put(logic.getId(), logic);
         } else {
-            log.error("Ignore Logic {} for room {}!", logic.getName(), logic.getPositionPath().getRoom());
+            log.info("Add Logic {} for room {}!", logic.getName(), logic.getPositionPath().getRoom());
+            logicMap.put(logic.getId(), logic);
         }
     }
 
     public void unregister(Logic logic) {
-        knxDevices.getAllDevices().forEach(device -> device.RemoveListener(logic));
-        logicList.remove(logic);
+        if (logicMap.containsKey(logic.getId())) {
+            log.info("Remove Logic {} for room {}!", logic.getName(), logic.getPositionPath().getRoom());
+            logicMap.get(logic.getId()).stop();
+            knxDevices.getAllDevices().forEach(device -> device.removeListener(logic));
+            logicMap.remove(logic.getId());
+        }
     }
 
     public void unregister(PositionPath path, String logicName) {
         this.getLogic(path, logicName)
-                .ifPresent(logicList::remove);
+                .ifPresent(this::unregister);
     }
 
     public Optional<Logic> getLogic(PositionPath path, String logicName) {
-        return this.logicList.stream()
-                .filter(l -> l.hasId(path, logicName))
-                .findFirst();
+        return Optional.of(this.logicMap.get(String.join("@", logicName, path.getId())));
     }
 
     public void stop() {
-        this.logicList.forEach(Logic::stop);
+        this.logicMap.values().forEach(Logic::stop);
     }
 
 
     public List<String> getLogicNames(PositionPath path) {
-        return this.logicList.stream()
+        return this.logicMap.values().stream()
                 .filter(logic -> logic.getPositionPath().isSame(path))
                 .map(Logic::getName)
                 .toList();
