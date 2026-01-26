@@ -62,7 +62,11 @@ public class LogicEngine {
     }
 
     public Optional<Logic> getLogic(PositionPath path, String logicName) {
-        return Optional.of(this.logicMap.get(String.join("@", logicName, path.getId())));
+        var key = String.join("@", logicName, path.getId());
+        if (this.logicMap.containsKey(key)) {
+            return Optional.of(this.logicMap.get(key));
+        }
+        return Optional.empty();
     }
 
     public void stop() {
