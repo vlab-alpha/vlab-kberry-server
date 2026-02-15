@@ -2,20 +2,18 @@ package tools.vlab.kberry.server.logic;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.actor.Light;
 import tools.vlab.kberry.core.devices.actor.OnOffDevice;
 import tools.vlab.kberry.core.devices.actor.OnOffStatus;
 import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
 import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
+import tools.vlab.kberry.server.log.Logger;
 
 import java.util.concurrent.ConcurrentHashMap;
 
 public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, PresenceStatus {
 
-    private static final Logger Log = LoggerFactory.getLogger(AutoPresenceLightOffLogic.class);
     public final static String LOGIC_NAME = "AutoPresenceOff";
 
     private final int followupTimeS;
@@ -34,15 +32,15 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
     @Override
     public void onOffStatusChanged(OnOffDevice onOffDevice, boolean isOn) {
         if (isNotSamePosition(onOffDevice)) {
-            Log.debug("Ignore {}", onOffDevice.getPositionPath());
+            Logger.debug(onOffDevice.getPositionPath(), "Skip to check off logic [Status:{}]", isOn);
             return;
         }
 
         if (isOn) {
-            Log.debug("Init Timer  {}", onOffDevice.getPositionPath());
+            Logger.debug(onOffDevice.getPositionPath(), "Init Timer");
             presence.put(onOffDevice.getPositionPath().getRoom(), OffTimer.init(onOffDevice.getPositionPath(), followupTimeS));
         } else {
-            Log.debug("Remove Timer for {}", onOffDevice.getPositionPath());
+            Logger.debug(onOffDevice.getPositionPath(),"Remove Timer");
             presence.remove(onOffDevice.getPositionPath().getRoom());
         }
     }
@@ -51,15 +49,17 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
     public void presenceChanged(PresenceSensor sensor, boolean available) {
         if (isNotSameRoom(sensor)) return;
 
-        Log.debug("SWITCH OFF Presence {}", sensor.getPositionPath());
+        Logger.debug(sensor.getPositionPath(), "Check to switch off light [PRESENCE:{}]", available);
         if (presence.containsKey(sensor.getPositionPath().getRoom())) {
-            Log.debug("Presence change from room: {} {}", sensor.getPositionPath().getRoom(), available);
             if (available) {
+                Logger.debug(sensor.getPositionPath(), "Switch off light [Timer RESET]");
                 presence.get(sensor.getPositionPath().getRoom()).reset();
             } else {
-                Log.debug("Timer start for room {}", sensor.getPositionPath().getRoom());
+                Logger.debug(sensor.getPositionPath(), "Switch off light [Timer START]");
                 presence.get(sensor.getPositionPath().getRoom()).start();
             }
+        } else {
+            Logger.debug(sensor.getPositionPath(),"Room does not have switch off logic!");
         }
     }
 
@@ -69,10 +69,10 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
                 var timer = presence.get(room);
                 if (!timer.within()) {
                     try {
-                        Log.debug("Switch off light for room: {}", room);
+                        Logger.debug(timer.getPositionPath(), "Switch off light");
                         this.getKnxDevices().getKNXDeviceByRoom(Light.class, timer.getPositionPath()).ifPresent(Light::off);
                     } catch (Exception e) {
-                        Log.error("Check Periodic Presence failed for path {}!", timer.getPositionPath().getPath(), e);
+                        Logger.error(timer.getPositionPath(), e,"Check Periodic Presence failed!");
                     }
                 }
             }
@@ -124,7 +124,7 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
         public boolean within() {
             if (this.timer != null) {
                 var span = (System.currentTimeMillis() - this.timer);
-                Log.debug("TIMER MS: {} <= {} for room {}", span, this.followupTimeMS, this.positionPath.getRoom());
+                Logger.debug(this.positionPath,"TIMER MS: {} <= {}", span, this.followupTimeMS);
                 return span <= this.followupTimeMS;
             }
             return true;

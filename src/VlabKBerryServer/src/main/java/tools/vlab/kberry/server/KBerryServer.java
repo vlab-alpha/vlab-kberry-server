@@ -2,8 +2,6 @@ package tools.vlab.kberry.server;
 
 import io.vertx.core.Vertx;
 import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import tools.vlab.kberry.core.baos.SerialBAOSConnection;
 import tools.vlab.kberry.core.baos.TimeoutException;
 import tools.vlab.kberry.core.devices.KNXDevice;
@@ -11,6 +9,7 @@ import tools.vlab.kberry.core.devices.KNXDevices;
 import tools.vlab.kberry.server.commands.Command;
 import tools.vlab.kberry.server.commands.CommandController;
 import tools.vlab.kberry.server.commands.Scene;
+import tools.vlab.kberry.server.log.Logger;
 import tools.vlab.kberry.server.logic.Logic;
 import tools.vlab.kberry.server.logic.LogicEngine;
 import tools.vlab.kberry.server.scheduler.ScheduleEngine;
@@ -27,8 +26,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class KBerryServer {
-
-    private static final Logger Log = LoggerFactory.getLogger(KBerryServer.class);
 
     private final SerialBAOSConnection connection;
     @Getter
@@ -127,18 +124,24 @@ public class KBerryServer {
         }
 
         public KBerryServer build(String csvExportFileName) throws IOException, TimeoutException {
-            Log.info("KBerryServer export CSV ...");
+            return build(csvExportFileName, null, null, null);
+        }
+
+        public KBerryServer build(String mailLogUserName, String mailLogPassword, String adminEmail) throws IOException, TimeoutException {
+            return build("ETSWeinzierlBAOSImport.csv", mailLogUserName, mailLogPassword, adminEmail);
+        }
+
+        public KBerryServer build(String csvExportFileName, String mailLogUserName, String mailLogPassword, String adminEmail) throws IOException, TimeoutException {
             devices.exportCSV(Path.of(csvExportFileName));
-            Log.info("KBerryServer connect to BAOS ...");
             connection.connect();
-            Log.info("KBerryServer Statistics ...");
             Vertx vertx = Vertx.vertx();
+            Logger.init(vertx, mailLogUserName, mailLogPassword, adminEmail);
 
             // Statistics
-            Statistics statistics = new Statistics(vertx);
+            Statistics statistics = new Statistics("statistics");
             var statisticsScheduler = new StatisticsScheduler(statistics, devices);
 
-            Log.info("KBerryServer Service Provider ...");
+            Logger.info("KBerryServer Service Provider ...");
 
             // ServiceProvider
             var costWattVerticle = new CostWattVerticle();
@@ -150,24 +153,25 @@ public class KBerryServer {
                     googleCalendarServiceProvider != null ? googleCalendarServiceProvider : icloudCalenderService
             );
 
-            Log.info("KBerryServer Logics Init ...");
+            Logger.info("KBerryServer Logics Init ...");
             // Logic
             var logicEngine = new LogicEngine(vertx, devices, serviceProvider, statistics);
+
             logics.forEach(logicEngine::register);
 
             // Commands
-            Log.info("KBerryServer MQTT Commands ...");
+            Logger.info("KBerryServer MQTT Commands ...");
             var controller = new CommandController(mqttHost, mqttPort, devices, statistics, serviceProvider, scheduler, logicEngine);
             commands.forEach(controller::register);
 
-            Log.info("KBerryServer Deploy Verticles ...");
+            Logger.info("KBerryServer Deploy Verticles ...");
             return vertx.deployVerticle(statisticsScheduler)
                     .compose(ignore -> vertx.deployVerticle(weatherServiceProvider))
                     .compose(ignore -> vertx.deployVerticle(costWattVerticle))
                     .compose(ignore -> vertx.deployVerticle(controller))
                     .compose(ignore -> vertx.deployVerticle(scheduler))
                     .map(ignore -> {
-                        Log.info("KBerryServer Build Done ...");
+                        Logger.info("KBerryServer Build Done ...");
                         return new KBerryServer(connection, devices, controller, logicEngine, statistics);
                     })
                     .await();

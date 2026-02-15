@@ -2,9 +2,9 @@ package tools.vlab.kberry.server.logic;
 
 import io.vertx.core.Vertx;
 import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.KNXDevices;
+import tools.vlab.kberry.server.log.Logger;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
 import tools.vlab.kberry.server.statistics.Statistics;
 
@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Slf4j
 public class LogicEngine {
 
     private final Vertx vertx;
@@ -37,19 +36,19 @@ public class LogicEngine {
         logic.setStatistics(statistics);
         logic.start(this.vertx);
         if (logicMap.containsKey(logic.getId())) {
-            log.info("Update Logic {} for room {}!", logic.getName(), logic.getPositionPath().getRoom());
-            knxDevices.getAllDevices().forEach(device -> device.removeListener(logicMap.get(logic.getId())));
-            logicMap.get(logic.getId()).stop();
+            unregister(logic);
+            Logger.info(logic.getPositionPath(), "Update Logic {}...", logic.getName());
             logicMap.put(logic.getId(), logic);
         } else {
-            log.info("Add Logic {} for room {}!", logic.getName(), logic.getPositionPath().getRoom());
+            Logger.info(logic.getPositionPath(), "Add Logic {}...", logic.getName());
             logicMap.put(logic.getId(), logic);
         }
+        knxDevices.getAllDevices().forEach(device -> device.addListener(logic));
     }
 
     public void unregister(Logic logic) {
         if (logicMap.containsKey(logic.getId())) {
-            log.info("Remove Logic {} for room {}!", logic.getName(), logic.getPositionPath().getRoom());
+            Logger.info(logic.getPositionPath(), "Remove Logic {}...", logic.getName());
             logicMap.get(logic.getId()).stop();
             knxDevices.getAllDevices().forEach(device -> device.removeListener(logic));
             logicMap.remove(logic.getId());

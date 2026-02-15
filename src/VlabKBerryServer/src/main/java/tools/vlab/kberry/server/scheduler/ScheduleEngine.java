@@ -1,10 +1,10 @@
 package tools.vlab.kberry.server.scheduler;
 
 import io.vertx.core.AbstractVerticle;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.KNXDevices;
+import tools.vlab.kberry.server.log.Logger;
 import tools.vlab.kberry.server.scheduler.trigger.Trigger;
 
 import java.time.LocalDateTime;
@@ -13,7 +13,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ScheduleEngine extends AbstractVerticle implements Schedule {
 
-    private static final Logger Log = LoggerFactory.getLogger(ScheduleEngine.class);
     private final Map<String, TriggerTask> scheduleMap = new ConcurrentHashMap<>();
     private Long timerId;
 
@@ -22,14 +21,14 @@ public class ScheduleEngine extends AbstractVerticle implements Schedule {
 
     @Override
     public void start() {
-        Log.info("Scheduler Start ...");
+        Logger.info("Scheduler Start ...");
         timerId = vertx.setPeriodic(1000, fireId -> scheduleMap.values().forEach(triggerTasks -> {
             if (triggerTasks.trigger().matches(LocalDateTime.now())) {
                 try {
-                    Log.info("Execute Task T:{} P:{}", triggerTasks.trigger(),triggerTasks.id());
+                    Logger.info(triggerTasks.positionPath(), "Execute Task T:{} P:{}", triggerTasks.trigger(), triggerTasks.id());
                     triggerTasks.task().run();
                 } catch (Exception e) {
-                    Log.error("Error executing task {}", triggerTasks.id(), e);
+                    Logger.error(triggerTasks.positionPath(), e, "Error executing task {}", triggerTasks.id());
                 }
             }
         }));
@@ -37,11 +36,11 @@ public class ScheduleEngine extends AbstractVerticle implements Schedule {
 
     public void registerSchedule(PositionPath path, String taskId, Trigger trigger, Runnable logic) {
         var id = id(path, taskId);
-        scheduleMap.put(id, new TriggerTask(id, trigger, logic));
+        scheduleMap.put(id, new TriggerTask(path, id, trigger, logic));
     }
 
     public void registerSchedule(KNXDevices knxDevices, Scheduler scheduler) {
-        scheduleMap.put(scheduler.getId(), new TriggerTask(scheduler.getId(), scheduler.getTrigger(), () -> scheduler.executed(knxDevices)));
+        scheduleMap.put(scheduler.getId(), new TriggerTask(scheduler.getPositionPath(), scheduler.getId(), scheduler.getTrigger(), () -> scheduler.executed(knxDevices)));
     }
 
     @Override
@@ -58,6 +57,6 @@ public class ScheduleEngine extends AbstractVerticle implements Schedule {
         if (timerId != null) {
             this.vertx.cancelTimer(timerId);
         }
-        Log.info("ScheduleEngine stopped.");
+        Logger.info("ScheduleEngine stopped...");
     }
 }

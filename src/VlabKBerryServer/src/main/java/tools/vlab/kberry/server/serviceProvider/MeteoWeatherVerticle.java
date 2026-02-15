@@ -8,8 +8,8 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 import lombok.Getter;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.vlab.kberry.server.log.Logger;
 
 import java.sql.Time;
 import java.time.LocalDate;
@@ -21,7 +21,6 @@ import java.util.Optional;
 
 public class MeteoWeatherVerticle extends AbstractVerticle implements WeatherServiceProvider {
 
-    private static final Logger Log = LoggerFactory.getLogger(MeteoWeatherVerticle.class);
 
     private WebClient client;
     private double latitude;
@@ -61,7 +60,7 @@ public class MeteoWeatherVerticle extends AbstractVerticle implements WeatherSer
 
     @Override
     public void start(Promise<Void> startPromise) {
-        Log.info("Starting MeteoWeatherVerticle");
+        Logger.info("Starting MeteoWeatherVerticle");
         client = WebClient.create(vertx, new WebClientOptions()
                 .setDefaultHost("api.open-meteo.com")
                 .setDefaultPort(443)
@@ -130,7 +129,7 @@ public class MeteoWeatherVerticle extends AbstractVerticle implements WeatherSer
                             }
 
                             currentTemperature = findCurrentTemperature(times, temps);
-                            Log.debug("Current temperature: {}", currentTemperature);
+                            Logger.debug("Current temperature: {}", currentTemperature);
                             currentWeather = findCurrentWeather(times, weatherCodes);
                         }
 
@@ -147,7 +146,7 @@ public class MeteoWeatherVerticle extends AbstractVerticle implements WeatherSer
                         }
                         return Future.succeededFuture();
                     } catch (Exception e) {
-                        Log.error("fetch weather data failed!", e);
+                        Logger.error("fetch weather data failed!", e);
                         return Future.failedFuture(e);
                     }
                 });
@@ -224,7 +223,7 @@ public class MeteoWeatherVerticle extends AbstractVerticle implements WeatherSer
             return Optional.of(hour >= sunriseHour && hour < sunsetHour);
 
         } catch (Exception e) {
-            Log.error("Is DayLight failed!", e);
+            Logger.error("Is DayLight failed!", e);
             return Optional.empty();
         }
     }
@@ -236,7 +235,7 @@ public class MeteoWeatherVerticle extends AbstractVerticle implements WeatherSer
             LocalDateTime ldt = LocalDateTime.parse(value);
             return Optional.of(Time.valueOf(ldt.toLocalTime()));
         } catch (Exception e) {
-            Log.error("Parse time failed!", e);
+            Logger.error(e, "Parse time failed!");
             return Optional.empty();
         }
     }

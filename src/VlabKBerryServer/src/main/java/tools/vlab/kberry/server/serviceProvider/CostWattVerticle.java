@@ -6,8 +6,8 @@ import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 import lombok.Getter;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.vlab.kberry.server.log.Logger;
 
 import java.time.Duration;
 
@@ -19,7 +19,6 @@ import java.time.Duration;
  */
 public class CostWattVerticle extends AbstractVerticle implements CostWattServiceProvider {
 
-    private static final Logger Log = LoggerFactory.getLogger(CostWattVerticle.class);
 
     @Getter
     private double localPricePerKWh;   // Preis des lokalen Anbieters €/kWh
@@ -50,7 +49,7 @@ public class CostWattVerticle extends AbstractVerticle implements CostWattServic
 
     @Override
     public void start(Promise<Void> startFuture) {
-        Log.info("Starting CostWattVerticle");
+        Logger.info("Starting CostWattVerticle");
         try {
             if (localPriceFile != null) {
                 loadLocalPrice()
@@ -62,7 +61,7 @@ public class CostWattVerticle extends AbstractVerticle implements CostWattServic
                         })
                         .onFailure(failed -> {
                             marketPricePerKWh = 13.0;
-                            Log.error("Update Energy price failed! Use default price {}", marketPricePerKWh);
+                            Logger.error("Update Energy price failed! Use default price {}", marketPricePerKWh);
                             startFuture.complete();
                         });
             } else {

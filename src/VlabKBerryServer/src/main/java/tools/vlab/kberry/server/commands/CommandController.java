@@ -10,9 +10,8 @@ import io.vertx.mqtt.MqttClientOptions;
 import io.vertx.mqtt.messages.MqttConnAckMessage;
 import lombok.Getter;
 import lombok.Setter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import tools.vlab.kberry.core.devices.KNXDevices;
+import tools.vlab.kberry.server.log.Logger;
 import tools.vlab.kberry.server.logic.LogicEngine;
 import tools.vlab.kberry.server.scheduler.Schedule;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
@@ -25,7 +24,6 @@ import java.util.stream.Collectors;
 
 public class CommandController extends AbstractVerticle {
 
-    private static final Logger Log = LoggerFactory.getLogger(CommandController.class);
 
     private final String mqttHost;
     private final KNXDevices knxDevices;
@@ -63,7 +61,7 @@ public class CommandController extends AbstractVerticle {
 
     @Override
     public void start(Promise<Void> startPromise) {
-        Log.info("Starting CommandController");
+        Logger.info("Starting CommandController");
         connectClient()
                 .onSuccess(v -> {
                     subscribeCommands();
@@ -96,9 +94,9 @@ public class CommandController extends AbstractVerticle {
         this.client.subscribe(subscription)
                 .onSuccess(handler -> {
                     var result = String.join("\n - ", subscription.keySet());
-                    Log.info("Subscribed to: {}\n", result);
+                    Logger.info("Subscribed to: {}\n", result);
                 })
-                .onFailure(cause -> Log.error("Failed to subscribe to commands! ", cause));
+                .onFailure(cause -> Logger.error(cause, "Failed to subscribe to commands! "));
     }
 
     private void setupMessageHandler() {
@@ -108,7 +106,7 @@ public class CommandController extends AbstractVerticle {
 
             String topicCommand = topic.substring("request/".length());
             var payload = message.payload().toString();
-            Log.debug("Received {} message: {}", topic, payload);
+            Logger.debug("Received {} message: {}", topic, payload);
             JsonObject json = payload != null && !payload.isEmpty() ? new JsonObject(payload) : new JsonObject();
             boolean found = false;
             for (Command command : commandList) {
@@ -121,7 +119,7 @@ public class CommandController extends AbstractVerticle {
                 }
             }
             if (!found) {
-                Log.warn("Unknown topic command {}", topicCommand);
+                Logger.error("Unknown topic command {}", topicCommand);
             }
         });
     }
@@ -132,8 +130,8 @@ public class CommandController extends AbstractVerticle {
                     response.ifPresent(resp -> publishResponse(command.topic().getTopic(), resp));
                 })
                 .onFailure(cause -> {
-                    Log.error("Failed to publish to topic {}", command.topic());
-                    Log.error("Failed to publish: ", cause);
+                    Logger.error("Failed to publish to topic {}", command.topic());
+                    Logger.error(cause, "Failed to publish");
                 });
     }
 

@@ -1,5 +1,6 @@
 package tools.vlab.kberry.server.scheduler;
 
+import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.devices.KNXDevices;
 import tools.vlab.kberry.server.scheduler.trigger.Trigger;
 
@@ -14,5 +15,7 @@ public abstract class Scheduler {
     protected String getId() {
         return UUID.randomUUID().toString();
     }
+
+    public abstract PositionPath getPositionPath();
 
 }

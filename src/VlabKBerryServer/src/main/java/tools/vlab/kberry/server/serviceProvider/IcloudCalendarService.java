@@ -9,8 +9,7 @@ import net.fortuna.ical4j.data.CalendarBuilder;
 import net.fortuna.ical4j.model.Component;
 import net.fortuna.ical4j.model.Calendar;
 import net.fortuna.ical4j.model.component.VEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import tools.vlab.kberry.server.log.Logger;
 
 import java.io.InputStream;
 import java.time.*;
@@ -19,7 +18,6 @@ import java.util.List;
 
 public class IcloudCalendarService extends AbstractVerticle implements CalendarServiceProvider {
 
-    private static final Logger Log = LoggerFactory.getLogger(IcloudCalendarService.class);
 
     private final String username;
     private final String appPassword;
@@ -59,7 +57,7 @@ public class IcloudCalendarService extends AbstractVerticle implements CalendarS
                             }
                         }
                     } catch (Exception e) {
-                        Log.error("Error reading calendar resource", e);
+                        Logger.error("Error reading calendar resource", e);
                     }
                 }
             }
