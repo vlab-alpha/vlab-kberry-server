@@ -7,10 +7,13 @@ import org.simplejavamail.email.EmailBuilder;
 import org.simplejavamail.mailer.MailerBuilder;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.slf4j.helpers.MessageFormatter;
 import tools.vlab.kberry.core.PositionPath;
+import tools.vlab.kberry.core.devices.KNXDevice;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -58,14 +61,19 @@ public class Logger {
         if (args == null || args.length == 0) {
             return message;
         }
-        return String.format(message, args);
+
+        if (message.contains("{}")) {
+            return MessageFormatter.arrayFormat(message, args).getMessage();
+        } else {
+            return String.format(message, args);
+        }
     }
 
     private static void setMDC(PositionPath positionPath) {
         if (positionPath != null) {
-            MDC.put("location", positionPath.getLocation());
-            MDC.put("floor", positionPath.getFloor());
-            MDC.put("room", positionPath.getRoom());
+            MDC.put("location", positionPath.getLocation().trim());
+            MDC.put("floor", positionPath.getFloor().trim());
+            MDC.put("room", positionPath.getRoom().trim());
             MDC.put("position", positionPath.getPosition());
         } else {
             MDC.put("location", "System");
@@ -80,7 +88,11 @@ public class Logger {
     }
 
     public static void debug(String message, Object... args) {
-        debug(null, message, args);
+        debug((PositionPath) null, message, args);
+    }
+
+    public static void debug(KNXDevice device, String message, Object... args) {
+        debug(device.getPositionPath(), String.format("[%s] %s", device.getClass().getSimpleName(), message), args);
     }
 
     public static void debug(PositionPath positionPath, String message, Object... args) {
@@ -99,8 +111,12 @@ public class Logger {
         bufferLog(positionPath, "DEBUG", formattedMessage, throwable);
     }
 
+    public static void info(KNXDevice device, String message, Object... args) {
+        info(device.getPositionPath(), String.format("[%s] %s", device.getClass().getSimpleName(), message), args);
+    }
+
     public static void info(String message, Object... args) {
-        info(null, message, args);
+        info((PositionPath) null, message, args);
     }
 
     public static void info(PositionPath positionPath, String message, Object... args) {
@@ -200,22 +216,17 @@ public class Logger {
         return sb.toString();
     }
 
-    public static String getLastLogs(PositionPath positionPath) {
+    public static List<LogEntry> getLastLogs(PositionPath positionPath) {
         return getLastLogs(positionPath.getRoom());
     }
 
-    public static String getLastLogs(String room) {
+    public static List<LogEntry> getLastLogs(String room) {
         BoundedStack<LogEntry> stack = LOG_BUFF.get(room);
         if (stack == null) {
-            return "Keine Logs für Raum: " + room;
+            return new ArrayList<>(0);
         }
 
-        List<LogEntry> entries = stack.toList();
-        StringBuilder sb = new StringBuilder();
-        for (LogEntry entry : entries) {
-            sb.append(entry.format()).append("\n");
-        }
-        return sb.toString();
+        return stack.toList();
     }
 
     public static String getLastLogs(PositionPath positionPath, int minutes) {
@@ -248,13 +259,13 @@ public class Logger {
         LOG_BUFF.remove(room);
     }
 
-    private record LogEntry(LocalDateTime timestamp, String level, PositionPath positionPath, String message,
+    public record LogEntry(LocalDateTime timestamp, String floor, PositionPath positionPath, String message,
                             Throwable throwable) {
 
-        String format() {
+        public String format() {
             StringBuilder sb = new StringBuilder();
             sb.append("[").append(timestamp.format(TIME_FORMATTER)).append("] ");
-            sb.append("[").append(level).append("] ");
+            sb.append("[").append(floor).append("] ");
             sb.append("[").append(positionPath.getRoom()).append("/").append(positionPath.getPosition()).append("] ");
             sb.append(message);
 

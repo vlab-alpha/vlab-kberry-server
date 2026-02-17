@@ -25,10 +25,10 @@ public class ScheduleEngine extends AbstractVerticle implements Schedule {
         timerId = vertx.setPeriodic(1000, fireId -> scheduleMap.values().forEach(triggerTasks -> {
             if (triggerTasks.trigger().matches(LocalDateTime.now())) {
                 try {
-                    Logger.info(triggerTasks.positionPath(), "Execute Task T:{} P:{}", triggerTasks.trigger(), triggerTasks.id());
+                    Logger.info(triggerTasks.positionPath(), "SCHEDULER: Execute Task T:{} P:{}", triggerTasks.trigger(), triggerTasks.id());
                     triggerTasks.task().run();
                 } catch (Exception e) {
-                    Logger.error(triggerTasks.positionPath(), e, "Error executing task {}", triggerTasks.id());
+                    Logger.error(triggerTasks.positionPath(), e, "SCHEDULER: Error executing task {}", triggerTasks.id());
                 }
             }
         }));
@@ -57,6 +57,6 @@ public class ScheduleEngine extends AbstractVerticle implements Schedule {
         if (timerId != null) {
             this.vertx.cancelTimer(timerId);
         }
-        Logger.info("ScheduleEngine stopped...");
+        Logger.info("SCHEDULER: ScheduleEngine stopped...");
     }
 }

@@ -37,10 +37,10 @@ public class LogicEngine {
         logic.start(this.vertx);
         if (logicMap.containsKey(logic.getId())) {
             unregister(logic);
-            Logger.info(logic.getPositionPath(), "Update Logic {}...", logic.getName());
+            Logger.info(logic.getPositionPath(), "LOGIC ENGINE: Update Logic {}...", logic.getName());
             logicMap.put(logic.getId(), logic);
         } else {
-            Logger.info(logic.getPositionPath(), "Add Logic {}...", logic.getName());
+            Logger.info(logic.getPositionPath(), "LOGIC ENGINE: Add Logic {}...", logic.getName());
             logicMap.put(logic.getId(), logic);
         }
         knxDevices.getAllDevices().forEach(device -> device.addListener(logic));
@@ -48,7 +48,7 @@ public class LogicEngine {
 
     public void unregister(Logic logic) {
         if (logicMap.containsKey(logic.getId())) {
-            Logger.info(logic.getPositionPath(), "Remove Logic {}...", logic.getName());
+            Logger.info(logic.getPositionPath(), "LOGIC ENGINE: Remove Logic {}...", logic.getName());
             logicMap.get(logic.getId()).stop();
             knxDevices.getAllDevices().forEach(device -> device.removeListener(logic));
             logicMap.remove(logic.getId());

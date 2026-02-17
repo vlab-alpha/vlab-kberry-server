@@ -7,6 +7,7 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.file.FileSystem;
 import io.vertx.core.file.OpenOptions;
 import tools.vlab.kberry.core.PositionPath;
+import tools.vlab.kberry.server.log.Logger;
 import tools.vlab.kberry.server.statistics.values.BooleanValue;
 import tools.vlab.kberry.server.statistics.values.FloatValue;
 import tools.vlab.kberry.server.statistics.values.IntValue;
@@ -34,17 +35,10 @@ public class Statistic<T extends PrimitiveValue> extends AbstractVerticle {
 
     @Override
     public void start(Promise<Void> startPromise) throws Exception {
-        Path dir = Path.of(folder).getParent();
-        getFileSystem().exists(dir.toString())
-                .compose(exists -> exists ? Future.succeededFuture() : getFileSystem().mkdirs(dir.toString()))
-                .compose(v -> getFileSystem().exists(folder))
-                .onSuccess(exists -> {
-                    if (exists) {
-                        startPromise.complete();
-                    } else {
-                        startPromise.fail("statistics folder cannot be create!");
-                    }
-                })
+        Logger.info("Folder for statistics: {}", folder);
+
+        getFileSystem().mkdirs(folder)
+                .onSuccess(v -> startPromise.complete())
                 .onFailure(startPromise::fail);
     }
 
@@ -119,6 +113,13 @@ public class Statistic<T extends PrimitiveValue> extends AbstractVerticle {
         LocalDate today = LocalDate.now();
         LocalDateTime from = today.atStartOfDay();
         LocalDateTime to   = today.plusDays(1).atStartOfDay().minusNanos(1);
+        return get(tClass, positionPath, from, to);
+    }
+
+    public Future<List<StatisticsEntry<T>>> getYesterday(Class<T> tClass, PositionPath positionPath) {
+        LocalDate today = LocalDate.now();
+        LocalDateTime from = today.minusDays(1).atStartOfDay();
+        LocalDateTime to   = today.atStartOfDay();
         return get(tClass, positionPath, from, to);
     }
 

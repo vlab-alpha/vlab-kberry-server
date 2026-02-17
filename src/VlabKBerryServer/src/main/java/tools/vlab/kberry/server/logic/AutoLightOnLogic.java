@@ -40,15 +40,15 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
     @Override
     public void presenceChanged(PresenceSensor sensor, boolean available) {
         if (isNotSameRoom(sensor)) {
-            Logger.debug(sensor.getPositionPath(), "AUTO LIGHT: Not same room");
+            Logger.debug(sensor, "AUTO LIGHT ON: Ignore Input");
             return;
         }
 
         if (available) {
-            Logger.debug(sensor.getPositionPath(), "AUTO LIGHT Presence [PRESENCE:{}]", sensor.isPresent());
+            Logger.debug(sensor, "AUTO LIGHT ON: Available ...");
             switchOnLightByLux();
         } else {
-            Logger.debug(sensor.getPositionPath(), "AUTO LIGHT Presence not available");
+            Logger.debug(sensor, "AUTO LIGHT ON: Ignore because not available ...");
         }
     }
 
@@ -59,6 +59,7 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
         if (minLux > 0) {
             var presence = this.getKnxDevices().getKNXDevice(PresenceSensor.class, sensor.getPositionPath());
             if (presence.isPresent() && presence.get().isPresent()) {
+                Logger.debug(sensor,"AUTO LIGHT ON: Lux changed received!");
                 switchOnLightByLux();
             }
         }
@@ -67,23 +68,22 @@ public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus
     // Problem only any light can be switch on, so if the room has many lights and you need specific light to switch on
     private void switchOnLightByLux() {
         try {
-            Logger.debug(getPositionPath(),"Check to switch on light");
             var light = this.getKnxDevices().getKNXDeviceByRoom(Light.class, this.getPositionPath());
             if (light.isPresent()) {
                 if (light.get().getLastPresentSecond() > IGNORE_S) {
                     var luxSensor = this.getKnxDevices().getKNXDeviceByRoom(LuxSensor.class, getPositionPath());
                     if (minLux <= 0 || luxSensor.isPresent() && luxSensor.get().getCurrentLux() <= 0 || luxSensor.isEmpty() || luxSensor.get().getSmoothedLux() <= minLux) {
-                        Logger.info(getPositionPath(), "Send switch light on command");
+                        Logger.info(light.get(),"AUTO LIGHT ON: send switch on command ...");
                         light.ifPresent(Light::on);
                     } else {
-                        Logger.debug(getPositionPath(), "Lux is too less [min:{}; current:{}]", minLux, luxSensor.get().getCurrentLux());
+                        Logger.debug(light.get(), "AUTO LIGHT ON: Lux is too less [min:{}; current:{}]", minLux, luxSensor.get().getCurrentLux());
                     }
                 } else {
-                    Logger.debug(getPositionPath(), "Ignore Presence because switch off the light {}s ago (< {}s)", light.get().getLastPresentSecond(), IGNORE_S);
+                    Logger.debug(light.get(), "AUTO LIGHT ON: Ignore Presence because switch off the light {}s ago (< {}s)", light.get().getLastPresentSecond(), IGNORE_S);
                 }
             }
         } catch (Exception e) {
-            Logger.error(getPositionPath(), "Switching on light Failed!", e);
+            Logger.error(getPositionPath(), "AUTO LIGHT ON: Switching on light Failed!", e);
         }
     }
 }

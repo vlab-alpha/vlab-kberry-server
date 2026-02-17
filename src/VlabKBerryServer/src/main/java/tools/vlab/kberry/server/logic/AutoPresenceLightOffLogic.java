@@ -32,15 +32,15 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
     @Override
     public void onOffStatusChanged(OnOffDevice onOffDevice, boolean isOn) {
         if (isNotSamePosition(onOffDevice)) {
-            Logger.debug(onOffDevice.getPositionPath(), "Skip to check off logic [Status:{}]", isOn);
+            Logger.debug(onOffDevice, "AUTO LIGHT OFF: SKIP Device does not have logic [Status:{}]", isOn);
             return;
         }
 
         if (isOn) {
-            Logger.debug(onOffDevice.getPositionPath(), "Init Timer");
+            Logger.debug(onOffDevice, "AUTO LIGHT OFF: Init Timer");
             presence.put(onOffDevice.getPositionPath().getRoom(), OffTimer.init(onOffDevice.getPositionPath(), followupTimeS));
         } else {
-            Logger.debug(onOffDevice.getPositionPath(),"Remove Timer");
+            Logger.debug(onOffDevice,"AUTO LIGHT OFF: Remove Timer");
             presence.remove(onOffDevice.getPositionPath().getRoom());
         }
     }
@@ -49,17 +49,14 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
     public void presenceChanged(PresenceSensor sensor, boolean available) {
         if (isNotSameRoom(sensor)) return;
 
-        Logger.debug(sensor.getPositionPath(), "Check to switch off light [PRESENCE:{}]", available);
         if (presence.containsKey(sensor.getPositionPath().getRoom())) {
             if (available) {
-                Logger.debug(sensor.getPositionPath(), "Switch off light [Timer RESET]");
+                Logger.debug(sensor, "AUTO LIGHT OFF: Someone in the room reset timer ...");
                 presence.get(sensor.getPositionPath().getRoom()).reset();
             } else {
-                Logger.debug(sensor.getPositionPath(), "Switch off light [Timer START]");
+                Logger.debug(sensor, "AUTO LIGHT OFF: Nobody in the room start timer ...");
                 presence.get(sensor.getPositionPath().getRoom()).start();
             }
-        } else {
-            Logger.debug(sensor.getPositionPath(),"Room does not have switch off logic!");
         }
     }
 
@@ -69,10 +66,12 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
                 var timer = presence.get(room);
                 if (!timer.within()) {
                     try {
-                        Logger.debug(timer.getPositionPath(), "Switch off light");
-                        this.getKnxDevices().getKNXDeviceByRoom(Light.class, timer.getPositionPath()).ifPresent(Light::off);
+                        this.getKnxDevices().getKNXDeviceByRoom(Light.class, timer.getPositionPath()).ifPresent(light -> {
+                            Logger.debug(light, "AUTO LIGHT OFF: is not in the time range, switch off the light");
+                            light.off();
+                        });
                     } catch (Exception e) {
-                        Logger.error(timer.getPositionPath(), e,"Check Periodic Presence failed!");
+                        Logger.error(timer.getPositionPath(), e,"AUTO LIGHT OFF: Check Periodic Presence failed!");
                     }
                 }
             }
@@ -124,7 +123,7 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
         public boolean within() {
             if (this.timer != null) {
                 var span = (System.currentTimeMillis() - this.timer);
-                Logger.debug(this.positionPath,"TIMER MS: {} <= {}", span, this.followupTimeMS);
+                Logger.debug(this.positionPath,"AUTO LIGHT OFF: TIMER MS: {} <= {}", span, this.followupTimeMS);
                 return span <= this.followupTimeMS;
             }
             return true;
