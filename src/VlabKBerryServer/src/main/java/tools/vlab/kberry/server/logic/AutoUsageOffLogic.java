@@ -1,8 +1,8 @@
 package tools.vlab.kberry.server.logic;
 
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.devices.actor.OnOffDevice;
-import tools.vlab.kberry.core.devices.actor.OnOffStatus;
+import tools.vlab.kberry.core.knx.devices.actor.OnOffDevice;
+import tools.vlab.kberry.core.knx.devices.actor.OnOffStatus;
 
 import java.util.concurrent.*;
 

@@ -3,15 +3,16 @@ package tools.vlab.kberry.server.logic;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.devices.actor.Light;
-import tools.vlab.kberry.core.devices.actor.OnOffDevice;
-import tools.vlab.kberry.core.devices.actor.OnOffStatus;
-import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
-import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
+import tools.vlab.kberry.core.knx.devices.actor.Light;
+import tools.vlab.kberry.core.knx.devices.actor.OnOffDevice;
+import tools.vlab.kberry.core.knx.devices.actor.OnOffStatus;
+import tools.vlab.kberry.core.knx.devices.sensor.PresenceSensor;
+import tools.vlab.kberry.core.knx.devices.sensor.PresenceStatus;
 import tools.vlab.kberry.server.log.Logger;
 
 import java.util.concurrent.ConcurrentHashMap;
 
+// FIXME: wenn es zwei Sensoren und zwei Leuchten gibt, dann schaltet es manchmal aus, obwohl in dem Raum (aber am anderen Sensor) trotzdem einer im Raum ist!!
 public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, PresenceStatus {
 
     public final static String LOGIC_NAME = "AutoPresenceOff";

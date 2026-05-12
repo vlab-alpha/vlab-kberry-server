@@ -16,6 +16,11 @@ public record DayOfWeek(java.time.DayOfWeek day, LocalTime time) implements Trig
     }
 
     @Override
+    public boolean isOnce() {
+        return false;
+    }
+
+    @Override
     public boolean matches(LocalDateTime now) {
         return LocalTimeUtil.isSame(now, day, time);
     }

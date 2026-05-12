@@ -3,7 +3,9 @@ package tools.vlab.kberry.server.logic;
 import io.vertx.core.Vertx;
 import lombok.Getter;
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.devices.KNXDevices;
+import tools.vlab.kberry.core.knx.devices.KNXDevices;
+import tools.vlab.kberry.core.mqtt.custom.devices.CustomMqttDevices;
+import tools.vlab.kberry.core.mqtt.shelly.devices.ShellyDevices;
 import tools.vlab.kberry.server.log.Logger;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
 import tools.vlab.kberry.server.statistics.Statistics;
@@ -16,6 +18,8 @@ public class LogicEngine {
 
     private final Vertx vertx;
     private final KNXDevices knxDevices;
+    private final CustomMqttDevices mqttDevices;
+    private final ShellyDevices shellyDevices;
     @Getter
     private final ServiceProviders services;
     @Getter
@@ -23,15 +27,19 @@ public class LogicEngine {
     private final Statistics statistics;
 
 
-    public LogicEngine(Vertx vertx, KNXDevices knxDevices, ServiceProviders services, Statistics statistics) {
+    public LogicEngine(Vertx vertx, KNXDevices knxDevices, CustomMqttDevices mqttDevices, ShellyDevices shellyDevices, ServiceProviders services, Statistics statistics) {
         this.vertx = vertx;
         this.knxDevices = knxDevices;
+        this.mqttDevices = mqttDevices;
+        this.shellyDevices =shellyDevices;
         this.services = services;
         this.statistics = statistics;
     }
 
     public void register(Logic logic) {
         logic.setKnxDevices(knxDevices);
+        logic.setMqttDevices(mqttDevices);
+        logic.setShellyDevices(shellyDevices);
         logic.setServiceProviders(services);
         logic.setStatistics(statistics);
         logic.start(this.vertx);
@@ -53,6 +61,14 @@ public class LogicEngine {
             knxDevices.getAllDevices().forEach(device -> device.removeListener(logic));
             logicMap.remove(logic.getId());
         }
+    }
+
+    public boolean isRegister(Logic logic) {
+        return this.logicMap.containsKey(logic.getId());
+    }
+
+    public boolean isRegister(PositionPath positionPath, String name) {
+        return this.logicMap.containsKey(String.join("@", name, positionPath.getId()));
     }
 
     public void unregister(PositionPath path, String logicName) {

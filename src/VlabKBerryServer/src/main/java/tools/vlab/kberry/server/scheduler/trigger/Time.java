@@ -23,4 +23,9 @@ public record Time(LocalTime time) implements Trigger {
         return new Time(time);
     }
 
+    @Override
+    public boolean isOnce() {
+        return true;
+    }
+
 }

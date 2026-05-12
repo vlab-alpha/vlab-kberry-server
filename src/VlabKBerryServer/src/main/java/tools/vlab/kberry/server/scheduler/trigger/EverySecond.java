@@ -12,4 +12,9 @@ public record EverySecond() implements Trigger {
     public static EverySecond trigger() {
         return new EverySecond();
     }
+
+    @Override
+    public boolean isOnce() {
+        return false;
+    }
 }

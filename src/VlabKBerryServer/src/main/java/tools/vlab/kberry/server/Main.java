@@ -1,9 +1,9 @@
 package tools.vlab.kberry.server;
 
 import tools.vlab.kberry.core.Haus;
-import tools.vlab.kberry.core.baos.TimeoutException;
-import tools.vlab.kberry.core.devices.PushButton;
-import tools.vlab.kberry.core.devices.actor.Light;
+import tools.vlab.kberry.core.knx.baos.TimeoutException;
+import tools.vlab.kberry.core.knx.devices.PushButton;
+import tools.vlab.kberry.core.knx.devices.actor.Light;
 
 public class Main {
 

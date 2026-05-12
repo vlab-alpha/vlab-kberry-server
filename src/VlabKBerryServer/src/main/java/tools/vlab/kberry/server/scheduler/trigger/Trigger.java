@@ -16,5 +16,6 @@ public interface Trigger {
      */
     boolean matches(LocalDateTime now);
 
+    boolean isOnce();
 
 }

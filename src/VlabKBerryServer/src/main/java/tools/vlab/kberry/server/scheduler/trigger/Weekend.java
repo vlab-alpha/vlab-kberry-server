@@ -22,4 +22,9 @@ public record Weekend(LocalTime time) implements Trigger {
     public static Weekend trigger(LocalTime time) {
         return new Weekend(time);
     }
+
+    @Override
+    public boolean isOnce() {
+        return false;
+    }
 }

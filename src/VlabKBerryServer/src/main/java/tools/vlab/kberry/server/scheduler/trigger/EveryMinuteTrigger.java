@@ -8,4 +8,9 @@ public record EveryMinuteTrigger() implements Trigger {
     public boolean matches(LocalDateTime now) {
         return now.getSecond() == 0;
     }
+
+    @Override
+    public boolean isOnce() {
+        return false;
+    }
 }

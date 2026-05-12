@@ -22,4 +22,9 @@ public record Weekday(LocalTime time) implements Trigger {
     public static Weekday trigger(LocalTime time) {
         return new Weekday(time);
     }
+
+    @Override
+    public boolean isOnce() {
+        return false;
+    }
 }

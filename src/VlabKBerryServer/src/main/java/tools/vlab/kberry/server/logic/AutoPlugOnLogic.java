@@ -1,10 +1,10 @@
 package tools.vlab.kberry.server.logic;
 
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.devices.actor.OnOffDevice;
-import tools.vlab.kberry.core.devices.actor.Plug;
-import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
-import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
+import tools.vlab.kberry.core.knx.devices.actor.OnOffDevice;
+import tools.vlab.kberry.core.knx.devices.actor.Plug;
+import tools.vlab.kberry.core.knx.devices.sensor.PresenceSensor;
+import tools.vlab.kberry.core.knx.devices.sensor.PresenceStatus;
 
 public class AutoPlugOnLogic extends Logic implements PresenceStatus {
 

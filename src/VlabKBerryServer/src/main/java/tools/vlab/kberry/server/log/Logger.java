@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.slf4j.helpers.MessageFormatter;
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.devices.KNXDevice;
+import tools.vlab.kberry.core.knx.devices.KNXDevice;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;

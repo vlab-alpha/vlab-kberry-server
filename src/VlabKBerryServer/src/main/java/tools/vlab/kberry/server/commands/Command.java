@@ -6,21 +6,27 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.devices.KNXDevices;
+import tools.vlab.kberry.core.knx.devices.KNXDevices;
+import tools.vlab.kberry.core.mqtt.custom.devices.CustomMqttDevices;
+import tools.vlab.kberry.core.mqtt.shelly.devices.ShellyDevices;
 import tools.vlab.kberry.server.logic.LogicEngine;
 import tools.vlab.kberry.server.scheduler.Schedule;
+import tools.vlab.kberry.server.scheduler.Scheduler;
 import tools.vlab.kberry.server.scheduler.trigger.Trigger;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
 import tools.vlab.kberry.server.statistics.Statistics;
 
 import java.io.File;
 import java.util.Optional;
+import java.util.function.Function;
 
 @Getter
 @Setter(AccessLevel.PROTECTED)
 public abstract class Command {
 
     private KNXDevices knxDevices;
+    private CustomMqttDevices mqttDevices;
+    private ShellyDevices shellyDevices;
     private LogicEngine logicEngine;
     private Statistics statistics;
     private ServiceProviders serviceProviders;
@@ -39,7 +45,6 @@ public abstract class Command {
         return topic().getTopic();
     }
 
-    // TODO: löschen
     public String getMqttTopic() {
         return "command/" + topic().getTopic();
     }
@@ -48,8 +53,20 @@ public abstract class Command {
         schedule.registerSchedule(positionPath, taskId, trigger, task);
     }
 
+    public void register(PositionPath positionPath, String taskId, Trigger trigger, Runnable logic, Function<Integer, Boolean> checkStatus, int retry) {
+        schedule.registerSchedule(positionPath, taskId, trigger, logic, checkStatus, retry);
+    }
+
+    public void register(Scheduler scheduler) {
+        schedule.registerSchedule(knxDevices, mqttDevices, shellyDevices, serviceProviders, scheduler);
+    }
+
     public void unregister(PositionPath positionPath, String taskId) {
         schedule.unregister(positionPath, taskId);
+    }
+
+    public void unregister(Scheduler scheduler) {
+        schedule.unregister(scheduler);
     }
 
     public abstract void init();

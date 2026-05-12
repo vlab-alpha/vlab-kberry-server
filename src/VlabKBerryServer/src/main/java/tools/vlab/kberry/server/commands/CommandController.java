@@ -10,7 +10,9 @@ import io.vertx.mqtt.MqttClientOptions;
 import io.vertx.mqtt.messages.MqttConnAckMessage;
 import lombok.Getter;
 import lombok.Setter;
-import tools.vlab.kberry.core.devices.KNXDevices;
+import tools.vlab.kberry.core.knx.devices.KNXDevices;
+import tools.vlab.kberry.core.mqtt.custom.devices.CustomMqttDevices;
+import tools.vlab.kberry.core.mqtt.shelly.devices.ShellyDevices;
 import tools.vlab.kberry.server.log.Logger;
 import tools.vlab.kberry.server.logic.LogicEngine;
 import tools.vlab.kberry.server.scheduler.Schedule;
@@ -27,6 +29,8 @@ public class CommandController extends AbstractVerticle {
 
     private final String mqttHost;
     private final KNXDevices knxDevices;
+    private final CustomMqttDevices mqttDevices;
+    private final ShellyDevices shellyDevices;
     private final Statistics statistics;
     private final ServiceProviders serviceProviders;
     private final Schedule schedule;
@@ -38,9 +42,11 @@ public class CommandController extends AbstractVerticle {
     private MqttClient client;
     private final int mqttPort;
 
-    public CommandController(String mqttHost, int mqttPort, KNXDevices knxDevices, Statistics statistics, ServiceProviders serviceProviders, Schedule schedule, LogicEngine logics) {
+    public CommandController(String mqttHost, int mqttPort, KNXDevices knxDevices, CustomMqttDevices mqttDevices, ShellyDevices shellyDevices, Statistics statistics, ServiceProviders serviceProviders, Schedule schedule, LogicEngine logics) {
         this.mqttHost = mqttHost;
         this.knxDevices = knxDevices;
+        this.mqttDevices = mqttDevices;
+        this.shellyDevices = shellyDevices;
         this.statistics = statistics;
         this.serviceProviders = serviceProviders;
         this.schedule = schedule;
@@ -52,6 +58,8 @@ public class CommandController extends AbstractVerticle {
         command.setStatistics(statistics);
         command.setServiceProviders(serviceProviders);
         command.setSchedule(schedule);
+        command.setMqttDevices(mqttDevices);
+        command.setShellyDevices(shellyDevices);
         command.setLogicEngine(logics);
         command.setKnxDevices(knxDevices);
         command.init();

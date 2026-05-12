@@ -2,8 +2,8 @@ package tools.vlab.kberry.server.statistics;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
-import tools.vlab.kberry.core.devices.KNXDevices;
-import tools.vlab.kberry.core.devices.sensor.*;
+import tools.vlab.kberry.core.knx.devices.KNXDevices;
+import tools.vlab.kberry.core.knx.devices.sensor.*;
 import tools.vlab.kberry.server.log.Logger;
 import tools.vlab.kberry.server.statistics.values.BooleanValue;
 import tools.vlab.kberry.server.statistics.values.FloatValue;

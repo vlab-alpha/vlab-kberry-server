@@ -1,13 +1,15 @@
 package tools.vlab.kberry.server.logic;
 
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.devices.actor.Light;
-import tools.vlab.kberry.core.devices.sensor.LuxSensor;
-import tools.vlab.kberry.core.devices.sensor.LuxStatus;
-import tools.vlab.kberry.core.devices.sensor.PresenceSensor;
-import tools.vlab.kberry.core.devices.sensor.PresenceStatus;
+import tools.vlab.kberry.core.knx.devices.actor.Light;
+import tools.vlab.kberry.core.knx.devices.sensor.LuxSensor;
+import tools.vlab.kberry.core.knx.devices.sensor.LuxStatus;
+import tools.vlab.kberry.core.knx.devices.sensor.PresenceSensor;
+import tools.vlab.kberry.core.knx.devices.sensor.PresenceStatus;
 import tools.vlab.kberry.server.log.Logger;
 
+
+// FIXME: Wenn in den Raum zwei Leuchten drinnen sind, dann kann es sein, dass manchmal das Licht sich nicht einschaltet, bei dem die Logic zugeordnet ist.
 public class AutoLightOnLogic extends Logic implements PresenceStatus, LuxStatus {
 
     public final static String LOGIC_NAME = "autoLightOn";

@@ -5,9 +5,13 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.devices.KNXDevice;
-import tools.vlab.kberry.core.devices.KNXDevices;
-import tools.vlab.kberry.core.devices.StatusListener;
+import tools.vlab.kberry.core.knx.devices.KNXDevice;
+import tools.vlab.kberry.core.knx.devices.KNXDevices;
+import tools.vlab.kberry.core.knx.devices.StatusListener;
+import tools.vlab.kberry.core.mqtt.custom.devices.CustomMqttDevice;
+import tools.vlab.kberry.core.mqtt.custom.devices.CustomMqttDevices;
+import tools.vlab.kberry.core.mqtt.shelly.devices.ShellyDevice;
+import tools.vlab.kberry.core.mqtt.shelly.devices.ShellyDevices;
 import tools.vlab.kberry.server.serviceProvider.ServiceProviders;
 import tools.vlab.kberry.server.statistics.Statistics;
 
@@ -18,6 +22,10 @@ public abstract class Logic implements StatusListener {
     private final PositionPath path;
     @Setter
     private KNXDevices knxDevices;
+    @Setter
+    private CustomMqttDevices mqttDevices;
+    @Setter
+    private ShellyDevices shellyDevices;
     @Setter
     private Statistics statistics;
     @Setter
@@ -36,6 +44,18 @@ public abstract class Logic implements StatusListener {
     }
 
     public boolean isNotSameRoom(KNXDevice device) {
+        return !path.sameRoom(device.getPositionPath());
+    }
+
+    public boolean isNotSamePosition(CustomMqttDevice device) {
+        return !path.isSame(device.getPositionPath());
+    }
+
+    public boolean isNotSameRoom(CustomMqttDevice device) {
+        return !path.sameRoom(device.getPositionPath());
+    }
+
+    public boolean isNotSameRoom(ShellyDevice device) {
         return !path.sameRoom(device.getPositionPath());
     }
 

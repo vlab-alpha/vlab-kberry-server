@@ -9,6 +9,11 @@ public record EveryHour() implements Trigger {
         return now.getMinute() == 0 && now.getSecond() == 0;
     }
 
+    @Override
+    public boolean isOnce() {
+        return false;
+    }
+
     public static EveryHour trigger() {
         return new EveryHour();
     }

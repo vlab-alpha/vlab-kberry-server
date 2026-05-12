@@ -12,4 +12,9 @@ public record EveryMinutes() implements Trigger  {
     public static EveryMinutes trigger() {
         return new EveryMinutes();
     }
+
+    @Override
+    public boolean isOnce() {
+        return false;
+    }
 }

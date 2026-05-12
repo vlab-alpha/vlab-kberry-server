@@ -15,6 +15,11 @@ public record Daily(LocalTime time) implements Trigger  {
     }
 
     @Override
+    public boolean isOnce() {
+        return false;
+    }
+
+    @Override
     public boolean matches(LocalDateTime now) {
         return LocalTimeUtil.isSame(now, time);
     }

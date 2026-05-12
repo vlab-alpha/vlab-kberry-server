@@ -1,11 +1,11 @@
 package tools.vlab.kberry.server.logic;
 
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.devices.actor.Dimmer;
-import tools.vlab.kberry.core.devices.actor.OnOffDevice;
-import tools.vlab.kberry.core.devices.actor.OnOffStatus;
-import tools.vlab.kberry.core.devices.sensor.LuxSensor;
-import tools.vlab.kberry.core.devices.sensor.LuxStatus;
+import tools.vlab.kberry.core.knx.devices.actor.Dimmer;
+import tools.vlab.kberry.core.knx.devices.actor.OnOffDevice;
+import tools.vlab.kberry.core.knx.devices.actor.OnOffStatus;
+import tools.vlab.kberry.core.knx.devices.sensor.LuxSensor;
+import tools.vlab.kberry.core.knx.devices.sensor.LuxStatus;
 
 public class DimmerByLuxLogic extends Logic implements OnOffStatus, LuxStatus {
 
