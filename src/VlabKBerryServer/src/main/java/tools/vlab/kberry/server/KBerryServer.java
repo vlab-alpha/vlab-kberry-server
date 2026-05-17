@@ -35,7 +35,9 @@ public class KBerryServer {
     @Getter
     private final KNXDevices knxDevices;
     @Getter
-    private final MqttDevices mqttDevices;
+    private final CustomMqttDevices mqttDevices;
+    @Getter
+    private final ShellyDevices shellyDevices;
     @Getter
     private final CommandController commandController;
     @Getter
@@ -45,10 +47,11 @@ public class KBerryServer {
     @Getter
     private final ServiceProviders serviceProviders;
 
-    private KBerryServer(SerialBAOSConnection connection, KNXDevices knxDevices, MqttDevices mqttDevices, CommandController commandController, LogicEngine logicEngine, Statistics statistics, ServiceProviders serviceProviders) {
+    private KBerryServer(SerialBAOSConnection connection, KNXDevices knxDevices, CustomMqttDevices mqttDevices, ShellyDevices shellyDevices, CommandController commandController, LogicEngine logicEngine, Statistics statistics, ServiceProviders serviceProviders) {
         this.connection = connection;
         this.knxDevices = knxDevices;
         this.mqttDevices = mqttDevices;
+        this.shellyDevices = shellyDevices;
         this.commandController = commandController;
         this.logicEngine = logicEngine;
         this.statistics = statistics;
@@ -150,6 +153,7 @@ public class KBerryServer {
             Vertx vertx = Vertx.vertx();
             Logger.init(vertx, mailLogUserName, mailLogPassword, adminEmail);
 
+
             // MQTT Devices
             this.mqttDevices.start(Path.of(mqttCsvFile));
 
@@ -194,7 +198,7 @@ public class KBerryServer {
                     .compose(ignore -> vertx.deployVerticle(scheduler))
                     .map(ignore -> {
                         Logger.info("KBerryServer Build Done ...");
-                        return new KBerryServer(connection, knxDevices, mqttDevices, controller, logicEngine, statistics, serviceProviders);
+                        return new KBerryServer(connection, knxDevices, mqttDevices, shellyDevices, controller, logicEngine, statistics, serviceProviders);
                     })
                     .await();
         }

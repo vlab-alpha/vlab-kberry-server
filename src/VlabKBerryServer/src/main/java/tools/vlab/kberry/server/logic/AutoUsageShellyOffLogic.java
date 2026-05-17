@@ -1,29 +1,29 @@
 package tools.vlab.kberry.server.logic;
 
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.knx.devices.actor.OnOffDevice;
-import tools.vlab.kberry.core.knx.devices.actor.OnOffStatus;
+import tools.vlab.kberry.core.mqtt.shelly.devices.device.Plug;
+import tools.vlab.kberry.core.mqtt.shelly.devices.device.PlugStatus;
 
 import java.util.concurrent.*;
 
 /**
  * Switched of in the specific time.
  */
-public class AutoUsageOffLogic extends Logic implements OnOffStatus {
+public class AutoUsageShellyOffLogic extends Logic implements PlugStatus {
 
-    public final static String LOGIC_NAME = "AutoUsageOff";
+    public final static String LOGIC_NAME = "AutoShellyUsageOff";
 
     private final int maxUsageMinutes;
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-    private final ConcurrentHashMap<OnOffDevice, ScheduledFuture<?>> activeTasks = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Plug, ScheduledFuture<?>> activeTasks = new ConcurrentHashMap<>();
 
-    private AutoUsageOffLogic(PositionPath path, int maxUsageMinutes) {
+    private AutoUsageShellyOffLogic(PositionPath path, int maxUsageMinutes) {
         super(LOGIC_NAME, path);
         this.maxUsageMinutes = maxUsageMinutes;
     }
 
-    public static AutoUsageOffLogic at(int maxUsageMinutes, PositionPath path) {
-        return new AutoUsageOffLogic(path, maxUsageMinutes);
+    public static AutoUsageShellyOffLogic at(int maxUsageMinutes, PositionPath path) {
+        return new AutoUsageShellyOffLogic(path, maxUsageMinutes);
     }
 
     @Override
@@ -36,8 +36,9 @@ public class AutoUsageOffLogic extends Logic implements OnOffStatus {
     public void start() {
     }
 
+
     @Override
-    public void onOffStatusChanged(OnOffDevice device, boolean isOn) {
+    public void isOnChanged(Plug device, Boolean isOn) {
         if (isNotSamePosition(device)) {
             return;
         }
@@ -62,4 +63,5 @@ public class AutoUsageOffLogic extends Logic implements OnOffStatus {
 
         activeTasks.put(device, task);
     }
+
 }

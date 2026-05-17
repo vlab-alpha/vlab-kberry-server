@@ -6,16 +6,16 @@ import tools.vlab.kberry.core.knx.devices.actor.Plug;
 import tools.vlab.kberry.core.knx.devices.sensor.PresenceSensor;
 import tools.vlab.kberry.core.knx.devices.sensor.PresenceStatus;
 
-public class AutoPlugOnLogic extends Logic implements PresenceStatus {
+public class AutoKnxPlugOnLogic extends Logic implements PresenceStatus {
 
-    public final static String LOGIC_NAME = "AutoPlugOn";
+    public final static String LOGIC_NAME = "AutoKnxPlugOn";
 
-    private AutoPlugOnLogic(PositionPath path) {
+    private AutoKnxPlugOnLogic(PositionPath path) {
         super(LOGIC_NAME, path);
     }
 
-    public static AutoPlugOnLogic at(PositionPath positionPath) {
-        return new AutoPlugOnLogic(positionPath);
+    public static AutoKnxPlugOnLogic at(PositionPath positionPath) {
+        return new AutoKnxPlugOnLogic(positionPath);
     }
 
     @Override

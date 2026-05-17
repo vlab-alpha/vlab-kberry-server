@@ -10,6 +10,7 @@ import org.slf4j.MDC;
 import org.slf4j.helpers.MessageFormatter;
 import tools.vlab.kberry.core.PositionPath;
 import tools.vlab.kberry.core.knx.devices.KNXDevice;
+import tools.vlab.kberry.core.mqtt.shelly.devices.ShellyDevice;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -92,6 +93,10 @@ public class Logger {
     }
 
     public static void debug(KNXDevice device, String message, Object... args) {
+        debug(device.getPositionPath(), String.format("[%s] %s", device.getClass().getSimpleName(), message), args);
+    }
+
+    public static void debug(ShellyDevice device, String message, Object... args) {
         debug(device.getPositionPath(), String.format("[%s] %s", device.getClass().getSimpleName(), message), args);
     }
 

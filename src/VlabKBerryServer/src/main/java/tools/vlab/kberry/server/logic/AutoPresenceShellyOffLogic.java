@@ -3,46 +3,49 @@ package tools.vlab.kberry.server.logic;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import tools.vlab.kberry.core.PositionPath;
-import tools.vlab.kberry.core.knx.devices.actor.Light;
-import tools.vlab.kberry.core.knx.devices.actor.OnOffDevice;
-import tools.vlab.kberry.core.knx.devices.actor.OnOffStatus;
 import tools.vlab.kberry.core.knx.devices.sensor.PresenceSensor;
 import tools.vlab.kberry.core.knx.devices.sensor.PresenceStatus;
+import tools.vlab.kberry.core.mqtt.shelly.devices.device.Plug;
+import tools.vlab.kberry.core.mqtt.shelly.devices.device.PlugStatus;
+import tools.vlab.kberry.core.mqtt.shelly.devices.device.ShellySwitch;
 import tools.vlab.kberry.server.log.Logger;
 
 import java.util.concurrent.ConcurrentHashMap;
 
 // FIXME: wenn es zwei Sensoren und zwei Leuchten gibt, dann schaltet es manchmal aus, obwohl in dem Raum (aber am anderen Sensor) trotzdem einer im Raum ist!!
-public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, PresenceStatus {
+public class AutoPresenceShellyOffLogic<T extends ShellySwitch> extends Logic implements PlugStatus, PresenceStatus {
 
-    public final static String LOGIC_NAME = "AutoPresenceOff";
+    public final static String LOGIC_NAME = "AutoPresenceShellyOff";
 
     private final int followupTimeS;
     private final ConcurrentHashMap<String, OffTimer> presence = new ConcurrentHashMap<>();
     private Long timerId = null;
+    private final Class<T> tClass;
 
-    private AutoPresenceLightOffLogic(int followupTimeS, PositionPath pathOfLight) {
+    private AutoPresenceShellyOffLogic(int followupTimeS, PositionPath pathOfLight, Class<T> tClass) {
         super(LOGIC_NAME, pathOfLight);
         this.followupTimeS = followupTimeS;
+        this.tClass = tClass;
     }
 
-    public static AutoPresenceLightOffLogic at(int followupTimeS, PositionPath pathOfLight) {
-        return new AutoPresenceLightOffLogic(followupTimeS, pathOfLight);
+    public static <T extends ShellySwitch> AutoPresenceShellyOffLogic<T> at(int followupTimeS, PositionPath pathOfLight, Class<T> tclass) {
+        return new AutoPresenceShellyOffLogic<T>(followupTimeS, pathOfLight, tclass);
     }
+
 
     @Override
-    public void onOffStatusChanged(OnOffDevice onOffDevice, boolean isOn) {
-        if (isNotSamePosition(onOffDevice)) {
-            Logger.debug(onOffDevice, "AUTO LIGHT OFF: SKIP Device does not have logic [Status:{}]", isOn);
+    public void isOnChanged(Plug device, Boolean isOn) {
+        if (isNotSamePosition(device)) {
+            Logger.debug(device, "AUTO LIGHT OFF: SKIP Device does not have logic [Status:{}]", isOn);
             return;
         }
 
         if (isOn) {
-            Logger.debug(onOffDevice, "AUTO LIGHT OFF: Init Timer");
-            presence.put(onOffDevice.getPositionPath().getRoom(), OffTimer.init(onOffDevice.getPositionPath(), followupTimeS));
+            Logger.debug(device, "AUTO LIGHT OFF: Init Timer");
+            presence.put(device.getPositionPath().getRoom(), OffTimer.init(device.getPositionPath(), followupTimeS));
         } else {
-            Logger.debug(onOffDevice,"AUTO LIGHT OFF: Remove Timer");
-            presence.remove(onOffDevice.getPositionPath().getRoom());
+            Logger.debug(device,"AUTO LIGHT OFF: Remove Timer");
+            presence.remove(device.getPositionPath().getRoom());
         }
     }
 
@@ -52,10 +55,10 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
 
         if (presence.containsKey(sensor.getPositionPath().getRoom())) {
             if (available) {
-                Logger.debug(sensor, "AUTO LIGHT OFF: Someone in the room reset timer ...");
+                Logger.debug(sensor, "AUTO DEVICE {} OFF: Someone in the room reset timer ...", tClass);
                 presence.get(sensor.getPositionPath().getRoom()).reset();
             } else {
-                Logger.debug(sensor, "AUTO LIGHT OFF: Nobody in the room start timer ...");
+                Logger.debug(sensor, "AUTO DEVICE {} OFF: Nobody in the room start timer ...", tClass);
                 presence.get(sensor.getPositionPath().getRoom()).start();
             }
         }
@@ -67,12 +70,12 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
                 var timer = presence.get(room);
                 if (!timer.within()) {
                     try {
-                        this.getKnxDevices().getKNXDeviceByRoom(Light.class, timer.getPositionPath()).ifPresent(light -> {
-                            Logger.debug(light, "AUTO LIGHT OFF: is not in the time range, switch off the light");
-                            light.off();
+                        this.getShellyDevices().getDevicesByRoom(this.tClass, timer.getPositionPath()).forEach(device -> {
+                            Logger.debug(device, "AUTO {} OFF: is not in the time range, switch off the light", tClass);
+                            device.off();
                         });
                     } catch (Exception e) {
-                        Logger.error(timer.getPositionPath(), e,"AUTO LIGHT OFF: Check Periodic Presence failed!");
+                        Logger.error(timer.getPositionPath(), e,"AUTO {} OFF: Check Periodic Presence failed!", tClass);
                     }
                 }
             }
@@ -80,8 +83,8 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
     }
 
     private void checkCurrentLights() {
-        this.getKnxDevices().getKNXDevice(Light.class, this.getPositionPath())
-                .filter(Light::isOn)
+        this.getShellyDevices().getDevice(this.tClass, this.getPositionPath())
+                .filter(ShellySwitch::isOn)
                 .ifPresent(lightOn -> presence.put(
                         lightOn.getPositionPath().getRoom(),
                         OffTimer.init(lightOn.getPositionPath(), followupTimeS))
@@ -100,6 +103,7 @@ public class AutoPresenceLightOffLogic extends Logic implements OnOffStatus, Pre
         startPeriodic();
         checkCurrentLights();
     }
+
 
 
     @AllArgsConstructor

@@ -51,6 +51,10 @@ public abstract class Logic implements StatusListener {
         return !path.isSame(device.getPositionPath());
     }
 
+    public boolean isNotSamePosition(ShellyDevice device) {
+        return !path.isSame(device.getPositionPath());
+    }
+
     public boolean isNotSameRoom(CustomMqttDevice device) {
         return !path.sameRoom(device.getPositionPath());
     }

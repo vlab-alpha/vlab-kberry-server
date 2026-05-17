@@ -38,7 +38,7 @@ public class ScheduleEngine extends AbstractVerticle implements Schedule {
                     if (triggerTasks.getCheckStatus() != null && triggerTasks.getRetry() > 0) {
                         triggerTasks.setNextCheck(now.plusSeconds(5)); // Beispiel: 5 Sekunden später
                         triggerTasks.resetRetry();
-                    } else if(triggerTasks.getTrigger().isOnce()) {
+                    } else if (triggerTasks.getTrigger().isOnce()) {
                         scheduleMap.remove(triggerTasks.getId());
                     }
                 } catch (Exception e) {
@@ -65,13 +65,13 @@ public class ScheduleEngine extends AbstractVerticle implements Schedule {
                         triggerTasks.setNextCheck(now.plusSeconds(5));
                     } else {
                         triggerTasks.stopNextCheck();
-                         if(triggerTasks.getTrigger().isOnce()) {
+                        if (triggerTasks.getTrigger().isOnce()) {
                             scheduleMap.remove(triggerTasks.getId());
                         }
                     }
                 } else {
                     triggerTasks.stopNextCheck();
-                    if(triggerTasks.getTrigger().isOnce()) {
+                    if (triggerTasks.getTrigger().isOnce()) {
                         scheduleMap.remove(triggerTasks.getId());
                     }
                 }
@@ -86,7 +86,24 @@ public class ScheduleEngine extends AbstractVerticle implements Schedule {
 
     public void registerSchedule(KNXDevices devices, CustomMqttDevices mqttDevices, ShellyDevices shellyDevices, ServiceProviders serviceProviders, Scheduler scheduler) {
         scheduler.setEngine(this);
-        scheduleMap.put(scheduler.getId(), TriggerTask.once(scheduler.getPositionPath(), scheduler.getId(), scheduler.getTrigger(), () -> scheduler.executed(devices, mqttDevices, shellyDevices, serviceProviders)));
+
+        if (scheduler.getRetry() == 1) {
+            scheduleMap.put(scheduler.getTaskId(),
+                    TriggerTask.once(scheduler.getPositionPath(), scheduler.getTaskId(), scheduler.getTrigger(),
+                            () -> scheduler.executed(devices, mqttDevices, shellyDevices, serviceProviders))
+            );
+        } else {
+            scheduleMap.put(scheduler.getTaskId(),
+                    TriggerTask.retry(
+                            scheduler.getPositionPath(),
+                            scheduler.getTaskId(),
+                            scheduler.getTrigger(),
+                            () -> scheduler.executed(devices, mqttDevices, shellyDevices, serviceProviders),
+                            (retry) -> scheduler.checkStatus(retry, devices, mqttDevices, shellyDevices, serviceProviders),
+                            scheduler.getRetry()
+                    )
+            );
+        }
     }
 
     @Override
@@ -95,7 +112,7 @@ public class ScheduleEngine extends AbstractVerticle implements Schedule {
     }
 
     public void unregister(Scheduler scheduler) {
-        scheduleMap.remove(scheduler.getId());
+        scheduleMap.remove(scheduler.getTaskId());
     }
 
     @Override
